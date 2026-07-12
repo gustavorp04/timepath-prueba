@@ -47,7 +47,21 @@ export async function POST(request) {
   }
 
   const buffer = Buffer.from(await archivo.arrayBuffer());
-  const mimeType = archivo.type || "application/octet-stream";
+  // Quitamos el sufijo ";codecs=..." que agregan los navegadores (ej: "audio/webm;codecs=opus")
+  let mimeType = (archivo.type || "application/octet-stream").split(";")[0].trim();
+  // Gemini no acepta "audio/mp4" como mime_type, solo "audio/m4a" (mismo contenedor)
+  if (mimeType === "audio/mp4" || mimeType === "audio/x-m4a") mimeType = "audio/m4a";
+
+  if (mimeType === "audio/webm") {
+    return Response.json(
+      {
+        error:
+          "Tu navegador grabó el audio en un formato que la IA no soporta. Usa Chrome o Edge en Windows/Android, o sube un PDF/foto en su lugar.",
+      },
+      { status: 400 }
+    );
+  }
+
   const hoy = new Date().toISOString().slice(0, 10);
 
   const tipoParte = mimeType.startsWith("image/")

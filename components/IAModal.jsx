@@ -84,10 +84,18 @@ export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }
 
   if (!captura) return null;
 
+  // Gemini no acepta audio/webm (lo que graba Chrome/Edge por defecto).
+  // Preferimos un formato que sí soporte; si no hay ninguno, caemos a webm
+  // y el servidor mostrará un error claro en vez de fallar en silencio.
+  const MIME_PREFERIDOS = ["audio/mp4", "audio/mpeg", "audio/aac", "audio/ogg;codecs=opus"];
+
   async function iniciarGrabacion() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream);
+      const mimeSoportado = MIME_PREFERIDOS.find(
+        (m) => typeof MediaRecorder.isTypeSupported === "function" && MediaRecorder.isTypeSupported(m)
+      );
+      const rec = new MediaRecorder(stream, mimeSoportado ? { mimeType: mimeSoportado } : undefined);
       const chunks = [];
       rec.ondataavailable = (e) => chunks.push(e.data);
       rec.onstop = () => {
