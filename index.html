@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Prototipo - Zero Fricción</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #e2e8f0;
+        }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .screen-enter { animation: screenEnter 0.25s ease-out forwards; }
+        @keyframes screenEnter { from { opacity: 0; } to { opacity: 1; } }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+        .animate-shake { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+
+        /* Confetti Animation CSS */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            z-index: 100;
+            animation: confetti-fall linear forwards;
+            pointer-events: none;
+        }
+        @keyframes confetti-fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            80% { opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        
+        /* Date picker icon styling for webkit */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            opacity: 0.6;
+            transition: 0.2s;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen sm:py-8 sm:px-4 relative overflow-hidden" id="body-container">
+
+    <main class="w-full max-w-md mx-auto h-[100dvh] sm:h-[800px] sm:max-h-[90vh] bg-slate-50 sm:rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col sm:border-[8px] sm:border-slate-800">
+        
+        <!-- Contenedor principal relavtivo. Las secciones manejaran su propio scroll (overflow-y-auto) -->
+        <div class="flex-1 relative overflow-hidden w-full h-full">
+            
+            <!-- PANTALLA 1: HOY -->
+            <section id="screen-hoy" class="absolute inset-0 overflow-y-auto no-scrollbar p-6 pb-32 bg-slate-50 screen-enter">
+                <header class="mb-8 mt-6">
+                    <p id="date-display" class="text-slate-500 font-medium text-xs tracking-widest uppercase mb-2"></p>
+                    <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">Concéntrate hoy.</h1>
+                    <p class="text-slate-500 mt-2 text-sm leading-tight font-medium">Aquí tienes tus proyectos asignados por la IA para hoy.</p>
+                </header>
+                
+                <div id="tasks-container" class="space-y-4">
+                    <!-- Proyectos y Tareas se inyectarán aquí -->
+                </div>
+
+                <div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 fade-in">
+                    <div class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
+                        <i data-lucide="coffee" class="w-10 h-10 text-slate-400"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-700 mb-2">Día libre de avances</h2>
+                    <p class="text-slate-500 text-center text-sm">El algoritmo indica que no hay urgencias en tus cursos.<br>Disfruta tu descanso sin culpa.</p>
+                </div>
+
+                <div id="success-state" class="hidden flex flex-col items-center justify-center h-72 fade-in relative">
+                    <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 z-10 relative">
+                        <i data-lucide="party-popper" class="w-10 h-10 text-green-600"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2">¡Día conquistado!</h2>
+                    <p class="text-slate-500 text-center text-sm">Estado guardado en SQLite.<br>Se bloqueó la entrada de más tareas por hoy para proteger tu descanso.</p>
+                    <div class="mt-6 bg-orange-50 text-orange-600 px-4 py-2 rounded-xl font-bold flex items-center gap-2 fade-in shadow-sm border border-orange-100">
+                        <i data-lucide="flame" class="w-5 h-5"></i> Racha aumentada a <span id="racha-ganada">6</span> días
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANTALLA 2: CALENDARIO / AGENDA -->
+            <section id="screen-calendario" class="absolute inset-0 overflow-y-auto no-scrollbar p-6 pb-32 bg-slate-50 hidden">
+                <header class="mb-6 mt-6">
+                    <h1 class="text-2xl font-bold text-slate-800">Calendario Académico</h1>
+                    <p class="text-slate-500 mt-1 text-sm font-medium">Visualiza las entregas importantes.</p>
+                </header>
+
+                <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-lg font-extrabold text-slate-700">Mes Actual</h2>
+                        <div class="flex gap-2">
+                            <button class="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                            <button class="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-7 gap-1 text-center mb-3">
+                        <div class="text-[10px] font-bold text-slate-400">L</div>
+                        <div class="text-[10px] font-bold text-slate-400">M</div>
+                        <div class="text-[10px] font-bold text-slate-400">M</div>
+                        <div class="text-[10px] font-bold text-slate-400">J</div>
+                        <div class="text-[10px] font-bold text-slate-400">V</div>
+                        <div class="text-[10px] font-bold text-slate-400">S</div>
+                        <div class="text-[10px] font-bold text-slate-400">D</div>
+                    </div>
+                    
+                    <div class="grid grid-cols-7 gap-y-3 gap-x-1 text-center text-sm font-medium" id="calendar-days">
+                        <div class="py-1.5 text-slate-300">29</div>
+                        <div class="py-1.5 text-slate-300">30</div>
+                        <div class="py-1.5 text-slate-700">1</div>
+                        <div class="py-1.5 text-slate-700">2</div>
+                        <div class="py-1.5 text-slate-700">3</div>
+                        <div class="py-1.5 text-slate-700">4</div>
+                        <div class="py-1.5 text-slate-700">5</div>
+                        
+                        <div class="py-1.5 text-slate-700">6</div>
+                        <div class="py-1.5 text-slate-700">7</div>
+                        <div class="py-1.5 text-slate-700">8</div>
+                        <div class="py-1.5 bg-blue-600 text-white rounded-xl font-bold shadow-md shadow-blue-200">9</div> 
+                        <div class="py-1.5 text-slate-700 relative flex flex-col items-center">
+                            10
+                            <div class="absolute bottom-0 w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                        </div>
+                        <div class="py-1.5 text-slate-700">11</div>
+                        <div class="py-1.5 text-slate-700">12</div>
+                        
+                        <div class="py-1.5 text-slate-700">13</div>
+                        <div class="py-1.5 text-slate-700 relative flex flex-col items-center">
+                            14
+                            <div class="absolute bottom-0 w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                        </div>
+                        <div class="py-1.5 text-slate-700">15</div>
+                        <div class="py-1.5 text-slate-700">16</div>
+                        <div class="py-1.5 text-slate-700">17</div>
+                        <div class="py-1.5 text-slate-700 relative flex flex-col items-center">
+                            18
+                            <div class="absolute bottom-0 w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                        </div>
+                        <div class="py-1.5 text-slate-700">19</div>
+
+                        <div class="py-1.5 text-slate-700">20</div>
+                        <div class="py-1.5 text-slate-700">21</div>
+                        <div class="py-1.5 text-slate-700">22</div>
+                        <div class="py-1.5 text-slate-700">23</div>
+                        <div class="py-1.5 text-slate-700">24</div>
+                        <div class="py-1.5 text-slate-700 relative flex flex-col items-center" id="cal-dia-25">25</div>
+                        <div class="py-1.5 text-slate-700">26</div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">Próximas Entregas</h3>
+                    <div class="space-y-3" id="entregas-list">
+                        <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-blue-200 transition-colors cursor-pointer">
+                            <div class="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex flex-col items-center justify-center font-bold flex-shrink-0">
+                                <span class="text-[9px] uppercase leading-none mb-0.5">Mes</span>
+                                <span class="text-base leading-none">10</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-1.5 mb-1">
+                                    <span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-[9px] font-bold uppercase tracking-wider">Algoritmos</span>
+                                </div>
+                                <h4 class="font-bold text-slate-800 text-sm leading-tight">Proyecto Backend Final</h4>
+                                <p class="text-xs text-slate-500 mt-1 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> 23:59 PM</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-blue-200 transition-colors cursor-pointer">
+                            <div class="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex flex-col items-center justify-center font-bold flex-shrink-0">
+                                <span class="text-[9px] uppercase leading-none mb-0.5">Mes</span>
+                                <span class="text-base leading-none">14</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-1.5 mb-1">
+                                    <span class="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-md text-[9px] font-bold uppercase tracking-wider">Física III</span>
+                                </div>
+                                <h4 class="font-bold text-slate-800 text-sm leading-tight">Laboratorio de Ondas</h4>
+                                <p class="text-xs text-slate-500 mt-1 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> 10:00 AM (Presencial)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANTALLA 3: CAPTURA -->
+            <section id="screen-captura" class="absolute inset-0 overflow-y-auto no-scrollbar p-6 pb-32 bg-slate-50 hidden">
+                <header class="mb-8 mt-6">
+                    <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight leading-tight">¿Qué tienes<br>pendiente?</h1>
+                    <p class="text-slate-500 mt-3 text-sm">Súbelo y el Backend local + Gemini AI lo organizarán por ti en segundos.</p>
+                </header>
+
+                <div class="space-y-4">
+                    <button onclick="iniciarCaptura('pdf')" class="w-full bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 hover:border-blue-200 hover:shadow-md transition-all active:scale-[0.98] group">
+                        <div class="w-14 h-14 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-colors">
+                            <i data-lucide="file-text" class="w-7 h-7"></i>
+                        </div>
+                        <div class="text-left flex-1">
+                            <h3 class="font-bold text-slate-800 text-lg">Subir PDF / Sílabo</h3>
+                            <p class="text-slate-400 text-xs mt-0.5">Vía documento digital</p>
+                        </div>
+                    </button>
+
+                    <button onclick="iniciarCaptura('foto')" class="w-full bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 hover:border-blue-200 hover:shadow-md transition-all active:scale-[0.98] group">
+                        <div class="w-14 h-14 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                            <i data-lucide="camera" class="w-7 h-7"></i>
+                        </div>
+                        <div class="text-left flex-1">
+                            <h3 class="font-bold text-slate-800 text-lg">Tomar Foto / PPT</h3>
+                            <p class="text-slate-400 text-xs mt-0.5">Vía OCR de pizarra</p>
+                        </div>
+                    </button>
+
+                    <button onclick="iniciarCaptura('audio')" class="w-full bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 hover:border-blue-200 hover:shadow-md transition-all active:scale-[0.98] group">
+                        <div class="w-14 h-14 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                            <i data-lucide="mic" class="w-7 h-7"></i>
+                        </div>
+                        <div class="text-left flex-1">
+                            <h3 class="font-bold text-slate-800 text-lg">Grabar Audio</h3>
+                            <p class="text-slate-400 text-xs mt-0.5">Vía transcripción de voz</p>
+                        </div>
+                    </button>
+                </div>
+            </section>
+
+            <!-- PANTALLA 4: PROGRESO -->
+            <section id="screen-progreso" class="absolute inset-0 overflow-y-auto no-scrollbar p-6 pb-32 bg-slate-50 hidden">
+                <header class="mb-6 mt-6 text-center">
+                    <h1 class="text-2xl font-bold text-slate-800">Tu Progreso</h1>
+                </header>
+
+                <div class="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 mb-6 flex flex-col items-center justify-center">
+                    <div class="relative w-32 h-32 mb-6 transition-transform duration-500" id="racha-circle">
+                        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                            <path class="text-slate-100" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="text-orange-500 transition-all duration-1000 ease-out" id="racha-svg" stroke-dasharray="75, 100" stroke-width="3" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="text-4xl font-black text-slate-800 tracking-tighter transition-all" id="racha-number">5</span>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Días</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">🔥</span>
+                        <h2 class="text-lg font-bold text-slate-800">Sin Amanecidas</h2>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2 text-center">¡Sigue así, estás cuidando tu salud mental!</p>
+                </div>
+
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-6">
+                    <div class="flex justify-between items-end mb-3">
+                        <span class="text-xs font-bold text-slate-600 uppercase tracking-wide">Semana libre de sobrecarga</span>
+                        <span class="text-sm font-black text-blue-500">80%</span>
+                    </div>
+                    <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-blue-500 rounded-full w-[80%] transition-all duration-1000"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- MODAL DETALLE TAREA (IA) -->
+        <div id="task-modal" class="hidden absolute inset-0 bg-slate-900/40 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm">
+            <div class="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-[2rem] p-6 shadow-2xl transform transition-transform translate-y-full duration-300 flex flex-col max-h-[80vh]" id="task-modal-content">
+                <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6 sm:hidden flex-shrink-0"></div>
+                
+                <div class="flex-1 overflow-y-auto no-scrollbar pb-4">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-lg">Detalle de Micro-tarea</h3>
+                            <p class="text-xs text-slate-500">Asistente IA</p>
+                        </div>
+                    </div>
+                    <h4 id="task-modal-title" class="font-bold text-xl text-slate-800 mb-4">Titulo Tarea</h4>
+                    
+                    <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100 mb-4">
+                        <ul class="space-y-4 text-[13px] font-medium" id="task-modal-steps">
+                            <!-- Descripcion dinámica de la microtarea -->
+                        </ul>
+                    </div>
+                </div>
+
+                <button onclick="cerrarTaskModal()" class="w-full flex-shrink-0 bg-slate-800 text-white font-bold py-4 rounded-xl hover:bg-slate-700 transition-colors active:scale-[0.98] shadow-md shadow-slate-300">
+                    Entendido, a enfocarse
+                </button>
+            </div>
+        </div>
+
+        <!-- MODAL IA / CAPTURA -->
+        <div id="ia-modal" class="hidden absolute inset-0 bg-slate-900/60 z-50 flex items-center justify-center backdrop-blur-sm px-4">
+            
+            <div id="modal-loading" class="bg-white p-8 rounded-[2rem] flex flex-col items-center shadow-2xl max-w-[280px] w-full transform scale-95 transition-transform duration-300">
+                <div class="relative w-16 h-16 mb-6 flex items-center justify-center">
+                    <div class="absolute inset-0 border-4 border-slate-100 rounded-full"></div>
+                    <div class="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
+                    <i data-lucide="server" class="w-6 h-6 text-blue-500" id="loading-icon"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800 text-center leading-tight" id="loading-title">Backend Local Django...</h3>
+                <p id="loading-text" class="text-xs text-slate-500 mt-3 text-center leading-relaxed">Enviando datos en milisegundos hacia el servidor local.</p>
+            </div>
+
+            <!-- Modal Filtro con Calendario Manual -->
+            <div id="modal-question" class="hidden bg-white p-6 rounded-[2rem] flex-col items-center shadow-2xl max-w-[340px] w-full transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto no-scrollbar">
+                <div class="w-12 h-12 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mb-3">
+                    <i data-lucide="alert-circle" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800 mb-1 text-center">Filtro Anti-fallas</h3>
+                <p class="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-3 text-center w-full">Google Gemini API</p>
+                <p class="text-xs text-slate-500 text-center mb-5 leading-relaxed">Se detectó una tarea pero falta el contexto exacto. <br>Ayuda a la IA completando esto:</p>
+                
+                <div class="w-full text-left space-y-4 mb-6">
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-500 uppercase mb-1.5 block">1. ¿A qué curso pertenece?</label>
+                        <select id="course-select" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-colors">
+                            <option value="" disabled selected>Selecciona un curso...</option>
+                            <option value="Calculo">Cálculo Avanzado</option>
+                            <option value="Fisica">Física III</option>
+                            <option value="Algoritmos">Algoritmos y Estructuras</option>
+                            <option value="Emprendimiento">Emprendimiento</option>
+                            <option value="Historia">Historia Crítica</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-[11px] font-bold text-slate-500 uppercase mb-1.5 block">2. Selecciona la Fecha de Entrega</label>
+                        <input type="date" id="selected-date" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-colors">
+                    </div>
+                </div>
+
+                <button onclick="validarYFraccionar()" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 transition-colors active:scale-95 shadow-lg shadow-blue-200">
+                    Confirmar y Fraccionar
+                </button>
+            </div>
+
+            <div id="modal-success" class="hidden bg-white p-8 rounded-[2rem] flex-col items-center shadow-2xl max-w-[280px] w-full transform scale-95 transition-transform duration-300">
+                <div class="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mb-4">
+                    <i data-lucide="calendar-check" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-800 text-center">Agenda reordenada</h3>
+                <p class="text-sm text-slate-500 text-center mt-2">La carga académica ha sido redistribuida en SQLite sin sobrecargar tu semana.</p>
+            </div>
+        </div>
+
+        <nav class="absolute bottom-0 w-full bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-3 flex justify-between items-center z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.02)]">
+            <button onclick="cambiarPantalla('hoy', this)" class="nav-btn active flex flex-col items-center justify-center gap-1 text-blue-600 transition-colors w-1/4">
+                <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
+                <span class="text-[10px] font-bold tracking-wide">Hoy</span>
+            </button>
+            <button onclick="cambiarPantalla('calendario', this)" class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-slate-600 transition-colors w-1/4">
+                <i data-lucide="calendar-days" class="w-6 h-6"></i>
+                <span class="text-[10px] font-bold tracking-wide">Agenda</span>
+            </button>
+            <button onclick="cambiarPantalla('captura', this)" class="nav-btn flex flex-col items-center justify-center text-slate-400 hover:text-slate-600 transition-colors w-1/4 group">
+                <div class="bg-blue-600 text-white p-3 rounded-full -mt-7 shadow-lg shadow-blue-200 flex items-center justify-center active:scale-95 transition-transform group-hover:scale-105 mb-0.5">
+                    <i data-lucide="plus" class="w-6 h-6"></i>
+                </div>
+                <span class="text-[10px] font-bold tracking-wide">Capturar</span>
+            </button>
+            <button onclick="cambiarPantalla('progreso', this)" class="nav-btn flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-slate-600 transition-colors w-1/4">
+                <i data-lucide="bar-chart-2" class="w-6 h-6"></i>
+                <span class="text-[10px] font-bold tracking-wide">Progreso</span>
+            </button>
+        </nav>
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        const dateElement = document.getElementById('date-display');
+        const options = { weekday: 'long', day: 'numeric', month: 'long' };
+        let currentDate = new Date().toLocaleDateString('es-ES', options);
+        dateElement.textContent = currentDate;
+
+        let proyectosHoy = [];
+        let racha = 5;
+        let taskIdCounter = 1;
+
+        function formatearFecha(dateStr) {
+            if(!dateStr) return { day: "??", month: "??" };
+            const partes = dateStr.split('-');
+            const year = partes[0];
+            const monthIdx = parseInt(partes[1], 10) - 1;
+            const day = partes[2];
+            
+            const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+            return {
+                day: day,
+                month: meses[monthIdx]
+            };
+        }
+
+        function renderizarTareas() {
+            const container = document.getElementById('tasks-container');
+            const successState = document.getElementById('success-state');
+            const emptyState = document.getElementById('empty-state');
+            container.innerHTML = '';
+
+            if (proyectosHoy.length === 0) {
+                container.classList.add('hidden');
+                successState.classList.add('hidden');
+                successState.classList.remove('flex');
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+                emptyState.classList.remove('flex');
+            }
+
+            let todasCompletadasGlobal = true;
+            let totalMicrotareas = 0;
+
+            proyectosHoy.forEach((proyecto, pIndex) => {
+                let todasCompletadasProyecto = true;
+                proyecto.microtareas.forEach(m => {
+                    totalMicrotareas++;
+                    if (!m.completada) {
+                        todasCompletadasProyecto = false;
+                        todasCompletadasGlobal = false;
+                    }
+                });
+
+                const isCompleted = todasCompletadasProyecto && proyecto.microtareas.length > 0;
+                
+                const card = document.createElement('div');
+                card.className = `bg-white rounded-3xl border ${isCompleted ? 'border-slate-100 opacity-60' : 'border-slate-200 shadow-sm hover:border-blue-300'} transition-all duration-300 overflow-hidden fade-in`;
+                card.style.animationDelay = `${pIndex * 0.1}s`;
+
+                const header = document.createElement('div');
+                header.className = `p-5 flex items-center justify-between cursor-pointer ${isCompleted ? 'bg-slate-50' : 'bg-white'}`;
+                header.onclick = () => alternarProyecto(proyecto.id);
+
+                header.innerHTML = `
+                    <div class="flex items-center gap-4 flex-1">
+                        <div class="w-10 h-10 rounded-2xl ${isCompleted ? 'bg-slate-200 text-slate-400' : 'bg-blue-50 text-blue-600'} flex items-center justify-center flex-shrink-0 transition-colors">
+                            ${isCompleted ? '<i data-lucide="check-circle-2" class="w-5 h-5"></i>' : '<i data-lucide="folder-open" class="w-5 h-5"></i>'}
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-wider ${isCompleted ? 'text-slate-400' : 'text-blue-600'} transition-colors">${proyecto.curso}</span>
+                            <h3 class="font-bold text-[15px] leading-tight ${isCompleted ? 'text-slate-500 line-through' : 'text-slate-800'} mt-0.5">${proyecto.descripcion}</h3>
+                        </div>
+                    </div>
+                    <div class="text-slate-400 transform transition-transform duration-300 ${proyecto.expandido ? 'rotate-180' : ''}">
+                        <i data-lucide="chevron-down" class="w-5 h-5"></i>
+                    </div>
+                `;
+                card.appendChild(header);
+
+                if (proyecto.expandido) {
+                    const microContainer = document.createElement('div');
+                    microContainer.className = "px-5 pb-5 pt-1 border-t border-slate-50 bg-slate-50/50 space-y-3";
+                    
+                    proyecto.microtareas.forEach((micro, mIndex) => {
+                        const mClases = micro.completada ? 'line-through text-slate-400' : 'text-slate-700';
+                        const mCheckColor = micro.completada ? 'bg-blue-500 border-blue-500' : 'border-slate-300 bg-white';
+                        
+                        const microDiv = document.createElement('div');
+                        microDiv.className = `flex items-center gap-3 p-3.5 rounded-2xl bg-white border ${micro.completada ? 'border-slate-100 opacity-60' : 'border-slate-200 shadow-sm'} cursor-pointer hover:border-blue-300 transition-all group`;
+                        microDiv.onclick = (e) => alternarMicrotarea(e, proyecto.id, micro.id);
+
+                        // Se corrige el paso de descripcion para que soporte comillas escapando caracteres
+                        const safeDesc = micro.desc.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+                        microDiv.innerHTML = `
+                            <div class="relative flex items-center justify-center w-6 h-6 flex-shrink-0">
+                                <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${mCheckColor}">
+                                    ${micro.completada ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
+                                </div>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-[13px] leading-tight ${mClases}">${mIndex + 1}. ${micro.titulo}</h4>
+                                <div class="flex items-center gap-1.5 mt-1.5 text-slate-400">
+                                    <i data-lucide="clock" class="w-3 h-3"></i>
+                                    <span class="text-[10px] font-semibold">${micro.tiempo}</span>
+                                </div>
+                            </div>
+                            <button onclick="abrirTaskModal(event, '${proyecto.curso}', '${micro.titulo}', '${safeDesc}')" class="p-2 text-slate-300 hover:text-blue-500 transition-colors bg-slate-50 rounded-xl group-hover:bg-blue-50">
+                                <i data-lucide="info" class="w-4 h-4"></i>
+                            </button>
+                        `;
+                        microContainer.appendChild(microDiv);
+                    });
+                    
+                    card.appendChild(microContainer);
+                }
+
+                container.appendChild(card);
+            });
+
+            lucide.createIcons();
+
+            if (todasCompletadasGlobal && totalMicrotareas > 0) {
+                setTimeout(() => {
+                    container.classList.add('hidden');
+                    successState.classList.remove('hidden');
+                    successState.classList.add('flex');
+                    lanzarConfeti();
+                    
+                    if(racha === 5) {
+                        racha = 6;
+                        document.getElementById('racha-number').textContent = "6";
+                        document.getElementById('racha-svg').setAttribute("stroke-dasharray", "85, 100");
+                        document.getElementById('racha-circle').classList.add('scale-110');
+                        setTimeout(() => document.getElementById('racha-circle').classList.remove('scale-110'), 500);
+                    }
+                }, 400); 
+            } else {
+                container.classList.remove('hidden');
+                successState.classList.add('hidden');
+                successState.classList.remove('flex');
+            }
+        }
+
+        function alternarProyecto(id) {
+            const p = proyectosHoy.find(p => p.id === id);
+            if(p) {
+                p.expandido = !p.expandido;
+                renderizarTareas();
+            }
+        }
+
+        function alternarMicrotarea(e, pId, mId) {
+            e.stopPropagation();
+            const p = proyectosHoy.find(p => p.id === pId);
+            if(p) {
+                const m = p.microtareas.find(m => m.id === mId);
+                if(m) {
+                    m.completada = !m.completada;
+                    renderizarTareas();
+                }
+            }
+        }
+
+        function cambiarPantalla(pantallaId, btnElement) {
+            // Manejamos el cambio de pantallas asegurando el re-flujo del scroll
+            document.querySelectorAll('section').forEach(s => {
+                s.classList.add('hidden');
+                s.classList.remove('screen-enter');
+                s.scrollTop = 0; // reset scroll position on change
+            });
+            const screen = document.getElementById(`screen-${pantallaId}`);
+            screen.classList.remove('hidden');
+            void screen.offsetWidth;
+            screen.classList.add('screen-enter');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-blue-600', 'active');
+                if(!btn.querySelector('.bg-blue-600')) btn.classList.add('text-slate-400');
+            });
+            if(!btnElement.querySelector('.bg-blue-600')) {
+                btnElement.classList.add('text-blue-600');
+                btnElement.classList.remove('text-slate-400');
+            }
+            btnElement.classList.add('active');
+        }
+
+        let lastCapturedType = "";
+        const modal = document.getElementById('ia-modal');
+        const mLoading = document.getElementById('modal-loading');
+        const mQuestion = document.getElementById('modal-question');
+        const mSuccess = document.getElementById('modal-success');
+
+        function iniciarCaptura(tipo) {
+            lastCapturedType = tipo;
+            modal.classList.remove('hidden');
+            mLoading.classList.remove('hidden');
+            mLoading.classList.remove('scale-95');
+            mLoading.classList.add('scale-100');
+            mQuestion.classList.add('hidden');
+            mQuestion.classList.remove('flex');
+            mSuccess.classList.add('hidden');
+            mSuccess.classList.remove('flex');
+
+            const title = document.getElementById('loading-title');
+            const text = document.getElementById('loading-text');
+            const icon = document.getElementById('loading-icon');
+            
+            title.textContent = "Backend Django (Local)";
+            text.textContent = "Datos recibidos en milisegundos. Iniciando proceso...";
+            icon.setAttribute("data-lucide", "server");
+            lucide.createIcons();
+
+            setTimeout(() => {
+                title.textContent = "Extracción Cruda";
+                if (tipo === 'pdf') {
+                    text.textContent = "Leyendo documento digital línea por línea...";
+                    icon.setAttribute("data-lucide", "file-search");
+                } else if (tipo === 'foto') {
+                    text.textContent = "Motor OCR local extrayendo palabras de la foto...";
+                    icon.setAttribute("data-lucide", "scan-text");
+                } else {
+                    text.textContent = "Librería local transcribiendo el audio a texto plano...";
+                    icon.setAttribute("data-lucide", "audio-waveform");
+                }
+                lucide.createIcons();
+
+                setTimeout(() => {
+                    title.textContent = "Google Gemini API";
+                    text.textContent = "Solicitud controlada: Extrayendo campos estructurados JSON: [Curso, Descripción, Deadline]...";
+                    icon.setAttribute("data-lucide", "sparkles");
+                    lucide.createIcons();
+
+                    setTimeout(() => {
+                        mLoading.classList.add('hidden');
+                        mLoading.classList.remove('scale-100');
+                        mLoading.classList.add('scale-95');
+                        mQuestion.classList.remove('hidden');
+                        mQuestion.classList.add('flex');
+                        setTimeout(() => mQuestion.classList.remove('scale-95').classList?.add('scale-100'), 10);
+                    }, 2000);
+                }, 2000);
+            }, 1500);
+        }
+
+        function validarYFraccionar() {
+            const courseSelect = document.getElementById('course-select');
+            const dateInput = document.getElementById('selected-date');
+
+            if(!courseSelect.value || !dateInput.value) {
+                mQuestion.classList.add('animate-shake');
+                setTimeout(() => mQuestion.classList.remove('animate-shake'), 400);
+                return;
+            }
+
+            simularFraccionamiento(courseSelect.options[courseSelect.selectedIndex].text, dateInput.value);
+        }
+
+        function simularFraccionamiento(courseName, dateVal) {
+            mQuestion.classList.remove('scale-100');
+            mQuestion.classList.add('scale-95');
+            setTimeout(() => {
+                mQuestion.classList.add('hidden');
+                mQuestion.classList.remove('flex');
+                
+                mLoading.classList.remove('hidden');
+                mLoading.classList.add('flex', 'scale-100');
+                
+                const fData = formatearFecha(dateVal);
+                
+                document.getElementById('loading-title').textContent = "Fraccionando...";
+                document.getElementById('loading-text').textContent = `Agendando para el ${fData.day} de ${fData.month}. Complejidad estimada de 4h. Fraccionando e insertando en SQLite.`;
+                document.getElementById('loading-icon').setAttribute("data-lucide", "git-branch");
+                lucide.createIcons();
+
+                setTimeout(() => {
+                    finalizarCaptura(courseName, dateVal);
+                }, 3500);
+            }, 300);
+        }
+
+        function finalizarCaptura(courseName, dateVal) {
+            mLoading.classList.remove('scale-100');
+            mLoading.classList.add('scale-95');
+            
+            setTimeout(() => {
+                mLoading.classList.add('hidden');
+                mLoading.classList.remove('flex');
+                mSuccess.classList.remove('hidden');
+                mSuccess.classList.add('flex');
+                setTimeout(() => mSuccess.classList.remove('scale-95').classList?.add('scale-100'), 10);
+            }, 300);
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                
+                let desc = "Asignación Desconocida";
+                if(lastCapturedType === 'pdf') desc = `Estructura de Documento`;
+                if(lastCapturedType === 'foto') desc = `Resolución de Ejercicios`;
+                if(lastCapturedType === 'audio') desc = `Esquema y Resumen`;
+
+                // Inyectamos el nuevo proyecto como el principal expandido con descripciones completas
+                proyectosHoy.unshift({
+                    id: taskIdCounter++,
+                    curso: courseName,
+                    descripcion: desc,
+                    expandido: true,
+                    microtareas: [
+                        { 
+                            id: 1, 
+                            titulo: "Fase 1: Revisión analítica", 
+                            tiempo: "15 min", 
+                            completada: false,
+                            desc: "Realizar una lectura rápida del material ingresado para identificar los 3 conceptos clave antes de empezar el desarrollo práctico."
+                        },
+                        { 
+                            id: 2, 
+                            titulo: "Fase 2: Ejecución principal", 
+                            tiempo: "30 min", 
+                            completada: false,
+                            desc: "Desarrollar la estructura base de la solución utilizando un temporizador Pomodoro estricto de concentración."
+                        }
+                    ]
+                });
+
+                // Si estaba vacío, agregamos un proyecto extra cerrado para mostrar la funcionalidad de acordeón
+                if(proyectosHoy.length === 1) {
+                    proyectosHoy.push({
+                        id: taskIdCounter++,
+                        curso: "Emprendimiento",
+                        descripcion: "Lienzo 6x6",
+                        expandido: false,
+                        microtareas: [
+                            { 
+                                id: 11, 
+                                titulo: "Definir propuesta de valor", 
+                                tiempo: "20 min", 
+                                completada: false,
+                                desc: "Identificar el problema principal del cliente y escribir una oración corta de cómo tu producto resuelve esa fricción."
+                            },
+                            { 
+                                id: 12, 
+                                titulo: "Estructurar segmentos clave", 
+                                tiempo: "25 min", 
+                                completada: false,
+                                desc: "Crear el arquetipo visual de tu cliente ideal (edad, demografía e intereses) basándote en la teoría de clases."
+                            }
+                        ]
+                    });
+                }
+                
+                renderizarTareas();
+
+                // Añadir al Calendario
+                const entregasList = document.getElementById('entregas-list');
+                const newEntrega = document.createElement('div');
+                const fData = formatearFecha(dateVal);
+
+                const calDayObj = document.getElementById(`cal-dia-${fData.day}`) || document.createElement('div');
+                if(!calDayObj.querySelector('.bg-red-500')) {
+                    calDayObj.classList.add('relative', 'flex', 'flex-col', 'items-center');
+                    calDayObj.innerHTML += `<div class="absolute bottom-0 w-1.5 h-1.5 bg-red-500 rounded-full"></div>`;
+                }
+
+                newEntrega.className = "bg-white p-4 rounded-2xl border border-green-200 shadow-sm flex items-center gap-4 cursor-pointer fade-in relative overflow-hidden";
+                newEntrega.innerHTML = `
+                    <div class="absolute top-0 right-0 bg-green-500 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-bl-xl shadow-sm">Nuevo</div>
+                    <div class="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex flex-col items-center justify-center font-bold flex-shrink-0">
+                        <span class="text-[9px] uppercase leading-none mb-0.5">${fData.month}</span>
+                        <span class="text-base leading-none">${fData.day}</span>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="px-2 py-0.5 bg-green-50 text-green-700 rounded-md text-[9px] font-bold uppercase tracking-wider border border-green-100">${courseName}</span>
+                        </div>
+                        <h4 class="font-bold text-slate-800 text-sm leading-tight">${desc}</h4>
+                        <p class="text-xs text-slate-500 mt-1 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> Para: ${fData.day} ${fData.month}</p>
+                    </div>
+                `;
+                entregasList.prepend(newEntrega);
+                lucide.createIcons();
+
+                // Limpiar modal
+                document.getElementById('course-select').value = "";
+                document.getElementById('selected-date').value = "";
+
+                const btnHoy = document.querySelector('.nav-btn[onclick*="hoy"]');
+                cambiarPantalla('hoy', btnHoy);
+            }, 2500);
+        }
+
+        function abrirTaskModal(e, course, title, description) {
+            e.stopPropagation();
+            
+            document.getElementById('task-modal-title').textContent = title;
+            const stepsContainer = document.getElementById('task-modal-steps');
+            
+            stepsContainer.innerHTML = `
+                <li class="flex gap-3 text-slate-700 mb-2 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+                    <i data-lucide="sparkles" class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5"></i> 
+                    <span><strong class="text-slate-800 block mb-1">¿De qué trata?</strong>${description}</span>
+                </li>
+                <li class="flex gap-3"><i data-lucide="git-branch" class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5"></i> <span>Fraccionada para <strong>${course}</strong>.</span></li>
+                <li class="flex gap-3"><i data-lucide="info" class="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5"></i> <span>Micro-tarea diseñada para evitar saturación mental.</span></li>
+            `;
+            lucide.createIcons();
+
+            const taskModal = document.getElementById('task-modal');
+            const taskModalContent = document.getElementById('task-modal-content');
+            
+            taskModal.classList.remove('hidden');
+            setTimeout(() => {
+                taskModalContent.classList.remove('translate-y-full');
+                taskModalContent.classList.add('translate-y-0');
+            }, 10);
+        }
+
+        function cerrarTaskModal() {
+            const taskModal = document.getElementById('task-modal');
+            const taskModalContent = document.getElementById('task-modal-content');
+            
+            taskModalContent.classList.remove('translate-y-0');
+            taskModalContent.classList.add('translate-y-full');
+            setTimeout(() => {
+                taskModal.classList.add('hidden');
+            }, 300);
+        }
+
+        function lanzarConfeti() {
+            const container = document.getElementById('body-container');
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+            for(let i=0; i<60; i++) {
+                const confeti = document.createElement('div');
+                confeti.className = 'confetti';
+                confeti.style.left = Math.random() * 100 + 'vw';
+                confeti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confeti.style.animationDelay = Math.random() * 0.5 + 's';
+                confeti.style.animationDuration = (Math.random() * 1.5 + 2) + 's';
+                container.appendChild(confeti);
+                setTimeout(() => confeti.remove(), 4000);
+            }
+        }
+
+        renderizarTareas();
+    </script>
+</body>
+</html>

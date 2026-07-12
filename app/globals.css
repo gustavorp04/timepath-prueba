@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+body {
+    font-family: var(--font-inter), 'Inter', sans-serif;
+    background-color: #e2e8f0;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+.screen-enter { animation: screenEnter 0.25s ease-out forwards; }
+@keyframes screenEnter { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-5px); }
+}
+.animate-shake { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+
+/* Confetti Animation CSS */
+.confetti {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    z-index: 100;
+    animation: confetti-fall linear forwards;
+    pointer-events: none;
+    top: 0;
+}
+@keyframes confetti-fall {
+    0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* Date picker icon styling for webkit */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+    transition: 0.2s;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}

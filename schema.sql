@@ -1,0 +1,40 @@
+-- =============================================================
+-- TimePath - Esquema para Neon (Postgres)
+-- Pega TODO este archivo en el SQL Editor de Neon y ejecútalo.
+-- =============================================================
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id SERIAL PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,          -- texto plano a propósito: solo prototipo de pruebas
+    racha INT NOT NULL DEFAULT 5,    -- días de racha "Sin Amanecidas"
+    racha_actualizada DATE           -- último día que aumentó la racha (evita doble aumento)
+);
+
+CREATE TABLE IF NOT EXISTS proyectos (
+    id SERIAL PRIMARY KEY,
+    usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    curso TEXT NOT NULL,
+    descripcion TEXT NOT NULL,
+    fecha_entrega DATE,
+    creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS microtareas (
+    id SERIAL PRIMARY KEY,
+    proyecto_id INT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+    titulo TEXT NOT NULL,
+    descripcion TEXT NOT NULL,
+    tiempo TEXT NOT NULL,            -- ej: "15 min"
+    orden INT NOT NULL DEFAULT 1,
+    completada BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+-- Usuarios de prueba para los entrevistados (password "123")
+INSERT INTO usuarios (username, password, racha) VALUES
+    ('usuario1', '123', 5),
+    ('usuario2', '123', 5),
+    ('usuario3', '123', 5),
+    ('usuario4', '123', 5),
+    ('usuario5', '123', 5)
+ON CONFLICT (username) DO NOTHING;
