@@ -50,30 +50,30 @@ export async function POST(request) {
   const mimeType = archivo.type || "application/octet-stream";
   const hoy = new Date().toISOString().slice(0, 10);
 
-  const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": process.env.GEMINI_API_KEY,
+  const tipoParte = mimeType.startsWith("image/")
+    ? "image"
+    : mimeType.startsWith("audio/")
+      ? "audio"
+      : "document";
+
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": process.env.GEMINI_API_KEY,
+    },
+    body: JSON.stringify({
+      model: "gemini-3.5-flash",
+      input: [
+        { type: "text", text: construirPrompt(hoy) },
+        { type: tipoParte, data: buffer.toString("base64"), mime_type: mimeType },
+      ],
+      response_format: {
+        type: "text",
+        mime_type: "application/json",
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { inlineData: { mimeType, data: buffer.toString("base64") } },
-              { text: construirPrompt(hoy) },
-            ],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
-    }
-  );
+    }),
+  });
 
   if (!res.ok) {
     const detalle = await res.text();
@@ -85,8 +85,10 @@ export async function POST(request) {
   }
 
   const data = await res.json();
-  const texto =
-    data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+  const texto = (data?.steps || [])
+    .flatMap((s) => s?.content || [])
+    .map((c) => c?.text || "")
+    .join("");
 
   let parsed;
   try {
