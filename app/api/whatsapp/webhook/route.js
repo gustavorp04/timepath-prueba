@@ -262,9 +262,62 @@ async function procesar(body) {
     return;
   }
 
-  // Sin captura pendiente: ayuda
-  await enviarMensaje(
-    from,
-    `Envíame una *foto*, un *PDF* o una *nota de voz* de tu tarea y la organizo por ti en micro-tareas. 📚`
-  );
+  // ---- CASO 4: sin nada pendiente — menú principal ----
+  const idMenu = message.type === "interactive" ? message.interactive?.button_reply?.id : null;
+
+  if (idMenu === "menu_nueva") {
+    await enviarMensaje(from, "Mándame una *foto*, un *PDF* o una *nota de voz* de tu tarea y la organizo por ti. 📚");
+    return;
+  }
+  if (idMenu === "menu_ver") {
+    await verTareas(usuario, from);
+    return;
+  }
+  if (idMenu === "menu_cerrar") {
+    await sql`UPDATE usuarios SET whatsapp_wa_id = NULL WHERE id = ${usuario.id}`;
+    await enviarMensaje(
+      from,
+      `Listo, ${usuario.username}, cerré tu sesión de WhatsApp. Si quieres volver a vincularte, escribe tu usuario y clave así: *usuario1 123*`
+    );
+    return;
+  }
+
+  await enviarBotones(from, `Hola de nuevo, ${usuario.username} 👋 ¿Qué quieres hacer?`, BOTONES_MENU);
+}
+
+const BOTONES_MENU = [
+  { id: "menu_nueva", title: "Nueva tarea" },
+  { id: "menu_ver", title: "Ver tareas" },
+  { id: "menu_cerrar", title: "Cerrar sesión" },
+];
+
+// Lista los proyectos recientes del usuario con sus microtareas (✅/⬜)
+async function verTareas(usuario, from) {
+  const proyectos = await sql`
+    SELECT id, curso, descripcion, to_char(fecha_entrega, 'YYYY-MM-DD') AS fecha_entrega
+    FROM proyectos WHERE usuario_id = ${usuario.id} ORDER BY id DESC LIMIT 5
+  `;
+  if (proyectos.length === 0) {
+    await enviarMensaje(
+      from,
+      "Todavía no tienes tareas guardadas. Mándame una foto, PDF o nota de voz para crear la primera. 📚"
+    );
+    return;
+  }
+
+  const micros = await sql`
+    SELECT m.proyecto_id, m.titulo, m.completada
+    FROM microtareas m
+    JOIN proyectos p ON p.id = m.proyecto_id
+    WHERE p.usuario_id = ${usuario.id}
+    ORDER BY m.orden, m.id
+  `;
+
+  const bloques = proyectos.map((p) => {
+    const propias = micros.filter((m) => m.proyecto_id === p.id);
+    const lista = propias.map((m) => `${m.completada ? "✅" : "⬜"} ${m.titulo}`).join("\n");
+    return `*${p.descripcion}* (${p.curso})${p.fecha_entrega ? ` — entrega ${p.fecha_entrega}` : ""}\n${lista}`;
+  });
+
+  await enviarMensaje(from, `📋 Tus últimas tareas:\n\n${bloques.join("\n\n")}`);
 }
