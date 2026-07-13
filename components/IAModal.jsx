@@ -165,6 +165,7 @@ export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }
         fecha,
         descripcion: resultado?.descripcion,
         microtareas: resultado?.microtareas,
+        resumen: resultado?.resumen_clase,
       });
       const espera = Math.max(0, 2500 - (Date.now() - inicio));
       programar(() => {

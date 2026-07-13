@@ -122,7 +122,7 @@ export default function AppShell({ username }) {
   }
 
   async function confirmarCaptura(datos) {
-    // datos = { curso, fecha, descripcion, microtareas } (los dos últimos vienen de Gemini)
+    // datos = { curso, fecha, descripcion, microtareas, resumen } (todo lo de Gemini)
     const res = await fetch("/api/tareas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

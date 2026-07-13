@@ -95,6 +95,8 @@ Para cambiar de usuario, usa el ícono de salir (arriba a la derecha en la panta
 | Foto (se comprime y Gemini la lee con visión) | ✅ Real |
 | Audio (se graba con el micrófono y Gemini lo transcribe/analiza) | ✅ Real |
 | Fraccionamiento en microtareas por IA | ✅ Real (Gemini genera 2-4 microtareas) |
+| Resumen de clase cuando el material es teórico | ✅ Real (Gemini lo genera y se guarda) |
+| Chatbot de WhatsApp (envías foto/PDF/audio sin abrir la app) | ✅ Real (requiere configurar Meta, ver abajo) |
 | Textos de "Backend Django / OCR local" en el loading | 🎭 Narrativa visual (la IA real es Gemini) |
 | Si Gemini falla → botón "Continuar manualmente" | 🛟 Fallback con microtareas de texto fijo |
 
@@ -112,3 +114,41 @@ DELETE FROM proyectos;                                    -- borra proyectos y m
 UPDATE usuarios SET racha = 5, racha_actualizada = NULL;  -- reinicia rachas
 -- y si quieres, vuelve a correr seed-demo.sql
 ```
+
+## Chatbot de WhatsApp (opcional)
+
+Permite mandar una **foto, PDF o nota de voz** por WhatsApp y que el bot cree las
+micro-tareas en tu cuenta, **sin abrir la app web**. Es 100% opcional: si no
+configuras estas variables, la app web sigue funcionando igual.
+
+> **Límite importante:** en modo de prueba, Meta solo deja mandarle mensajes al bot
+> desde **5 números verificados** por ti (quitar ese límite exige verificación de
+> negocio de Meta, con documentos de empresa). Por eso esta función se demuestra
+> sobre todo al **profesor/jurado**, no a los ~30 entrevistados.
+
+### Pasos en Meta (los haces tú, requieren tu celular)
+
+1. Entra a [developers.facebook.com](https://developers.facebook.com), crea una **App** tipo *Business*.
+2. Agrega el producto **WhatsApp**. Meta te da un **número de prueba** gratis.
+3. En **WhatsApp → API Setup**:
+   - Copia el **Phone number ID** → variable `WHATSAPP_PHONE_NUMBER_ID`.
+   - En "To", agrega y verifica los números que podrán usar el bot (tu celular, jurado…).
+     Cada uno recibe un código por WhatsApp y lo confirma una vez.
+4. Genera un **token permanente**: Business Settings → **System Users** → crea uno →
+   *Generate token* con permisos `whatsapp_business_messaging` y
+   `whatsapp_business_management` → cópialo en `WHATSAPP_TOKEN`.
+   (El token temporal de 24h del quickstart NO sirve para varios días.)
+5. Inventa una palabra secreta para `WHATSAPP_VERIFY_TOKEN` (ej: `timepath123`).
+6. Agrega esas 3 variables en Vercel (Settings → Environment Variables) y **redeploya**.
+7. En **WhatsApp → Configuration → Webhook**:
+   - Callback URL: `https://TU-APP.vercel.app/api/whatsapp/webhook`
+   - Verify token: la misma palabra de `WHATSAPP_VERIFY_TOKEN`.
+   - Da **Verify and Save**, y en "Webhook fields" **suscríbete a `messages`**.
+
+### Cómo se usa
+
+1. Desde un número verificado, escríbele al número de prueba del bot: `usuario1 123`
+   (así vincula ese WhatsApp con ese usuario de TimePath).
+2. Manda una foto, un PDF o una nota de voz de tu tarea.
+3. Si a la IA le falta el curso o la fecha, el bot te lo pregunta por chat.
+4. Las micro-tareas aparecen en la app web de ese usuario.

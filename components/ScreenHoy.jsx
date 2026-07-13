@@ -11,6 +11,7 @@ import {
   Clock,
   Info,
   LogOut,
+  BookOpen,
 } from "lucide-react";
 
 export default function ScreenHoy({
@@ -136,6 +137,22 @@ export default function ScreenHoy({
                       >
                         {proyecto.descripcion}
                       </h3>
+                      {proyecto.resumen && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenTask({
+                              curso: proyecto.curso,
+                              titulo: "Resumen de clase",
+                              descripcion: proyecto.resumen,
+                              tipo: "resumen",
+                            });
+                          }}
+                          className="mt-2 inline-flex items-center gap-1.5 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg px-2.5 py-1 text-[11px] font-bold hover:bg-amber-100 transition-colors active:scale-95"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" /> Resumen de clase
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div
