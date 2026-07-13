@@ -320,4 +320,5 @@ async function verTareas(usuario, from) {
   });
 
   await enviarMensaje(from, `📋 Tus últimas tareas:\n\n${bloques.join("\n\n")}`);
+  await enviarBotones(from, "¿Qué quieres hacer ahora?", BOTONES_MENU);
 }
