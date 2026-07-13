@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { sql } from "@/lib/db";
 import { analizarArchivo } from "@/lib/ai";
 import { guardarProyecto } from "@/lib/proyectos";
-import { enviarMensaje, descargarMedia } from "@/lib/whatsapp";
+import { enviarMensaje, enviarBotones, descargarMedia } from "@/lib/whatsapp";
 
 export const maxDuration = 60;
 
@@ -85,16 +85,57 @@ async function finalizar(usuario, captura, from) {
     descripcion: captura.descripcion,
     microtareas: captura.microtareas,
     resumen: captura.resumen,
+    modoExigente: !!captura.modoExigente,
   });
   await sql`UPDATE usuarios SET captura_pendiente = NULL WHERE id = ${usuario.id}`;
 
   let msg = `✅ *${captura.descripcion}* (${captura.curso}) para el ${captura.fecha}.\n\nLa dividí en:\n${resumenMicrotareas(
     captura.microtareas
   )}\n\nÁbrela en la app para ver el detalle y marcar tu avance. 💪`;
+  if (captura.modoExigente) {
+    msg += `\n\n🛡️ *Modo exigente activado*: cada microtarea te pedirá evidencia verificada por IA antes de poder completarse.`;
+  }
   if (captura.resumen) {
     msg += `\n\n📘 Además te dejé un resumen de clase de este tema en la app.`;
   }
   await enviarMensaje(from, msg);
+}
+
+const BOTONES_MODO_EXIGENTE = [
+  { id: "modo_si", title: "Sí" },
+  { id: "modo_no", title: "No" },
+  { id: "modo_cancelar", title: "Cancelar" },
+];
+
+// Pregunta si activar modo exigente antes de guardar (una vez ya hay curso y fecha)
+async function preguntarModoExigente(usuario, captura, from) {
+  await sql`UPDATE usuarios SET captura_pendiente = ${JSON.stringify({
+    ...captura,
+    preguntandoModo: true,
+  })} WHERE id = ${usuario.id}`;
+
+  await enviarBotones(
+    from,
+    `Detecté todo: *${captura.descripcion}* (${captura.curso}) para el ${captura.fecha}.\n\n¿Activar *modo exigente*? Cada microtarea pedirá evidencia (foto/texto) verificada por IA antes de poder completarse.`,
+    BOTONES_MODO_EXIGENTE
+  );
+}
+
+// Si ya hay curso y fecha, pregunta el modo exigente; si no, pide lo que falte.
+async function avanzar(usuario, captura, from) {
+  if (captura.curso && captura.fecha) {
+    await preguntarModoExigente(usuario, captura, from);
+    return;
+  }
+  await sql`UPDATE usuarios SET captura_pendiente = ${JSON.stringify(captura)} WHERE id = ${usuario.id}`;
+  if (!captura.curso) {
+    await enviarMensaje(from, `Detecté: *${captura.descripcion}*.\n\n¿A qué *curso* pertenece? (escríbelo)`);
+  } else {
+    await enviarMensaje(
+      from,
+      `Detecté: *${captura.descripcion}* (${captura.curso}).\n\n¿Para qué *fecha* es la entrega? (ej: 2026-07-20 o 20/07)`
+    );
+  }
 }
 
 async function procesar(body) {
@@ -136,6 +177,35 @@ async function procesar(body) {
 
   const pendiente = usuario.captura_pendiente;
 
+  // ---- CASO 2a: está esperando la respuesta de "modo exigente" (botón o texto) ----
+  if (pendiente?.preguntandoModo) {
+    const idBoton = message.type === "interactive" ? message.interactive?.button_reply?.id : null;
+    const texto = (message.text?.body || "").trim().toLowerCase();
+
+    const esSi = idBoton === "modo_si" || texto === "si" || texto === "sí";
+    const esNo = idBoton === "modo_no" || texto === "no";
+    const esCancelar = idBoton === "modo_cancelar" || texto === "cancelar";
+
+    if (esSi || esNo) {
+      const captura = { ...pendiente };
+      delete captura.preguntandoModo;
+      captura.modoExigente = esSi;
+      await finalizar(usuario, captura, from);
+      return;
+    }
+    if (esCancelar) {
+      await sql`UPDATE usuarios SET captura_pendiente = NULL WHERE id = ${usuario.id}`;
+      await enviarMensaje(from, "Listo, cancelé esa captura. Mándame otra foto, PDF o nota de voz cuando quieras. 📚");
+      return;
+    }
+    await enviarBotones(
+      from,
+      "No te entendí 😅. ¿Activar *modo exigente* para esta tarea?",
+      BOTONES_MODO_EXIGENTE
+    );
+    return;
+  }
+
   // ---- CASO 2: mandó un archivo (imagen / documento / audio) ----
   const media =
     message.type === "image"
@@ -165,22 +235,7 @@ async function procesar(body) {
       microtareas: resultado.microtareas,
     };
 
-    if (captura.curso && captura.fecha) {
-      await finalizar(usuario, captura, from);
-    } else {
-      await sql`UPDATE usuarios SET captura_pendiente = ${JSON.stringify(captura)} WHERE id = ${usuario.id}`;
-      if (!captura.curso) {
-        await enviarMensaje(
-          from,
-          `Detecté: *${captura.descripcion}*.\n\n¿A qué *curso* pertenece? (escríbelo)`
-        );
-      } else {
-        await enviarMensaje(
-          from,
-          `Detecté: *${captura.descripcion}* (${captura.curso}).\n\n¿Para qué *fecha* es la entrega? (ej: 2026-07-20 o 20/07)`
-        );
-      }
-    }
+    await avanzar(usuario, captura, from);
     return;
   }
 
@@ -203,12 +258,7 @@ async function procesar(body) {
       captura.fecha = fecha;
     }
 
-    if (captura.curso && captura.fecha) {
-      await finalizar(usuario, captura, from);
-    } else {
-      await sql`UPDATE usuarios SET captura_pendiente = ${JSON.stringify(captura)} WHERE id = ${usuario.id}`;
-      await enviarMensaje(from, `Perfecto. ¿Para qué *fecha* es la entrega? (ej: 2026-07-20 o 20/07)`);
-    }
+    await avanzar(usuario, captura, from);
     return;
   }
 
