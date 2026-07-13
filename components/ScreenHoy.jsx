@@ -12,6 +12,7 @@ import {
   Info,
   LogOut,
   BookOpen,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function ScreenHoy({
@@ -24,6 +25,7 @@ export default function ScreenHoy({
   onToggleMicro,
   onOpenTask,
   onLogout,
+  onAbrirEvidencia,
 }) {
   const fecha = new Date().toLocaleDateString("es-ES", {
     weekday: "long",
@@ -169,56 +171,76 @@ export default function ScreenHoy({
                     {proyecto.microtareas.map((micro, mIndex) => (
                       <div
                         key={micro.id}
-                        className={`flex items-center gap-3 p-3.5 rounded-2xl bg-white border ${
+                        className={`p-3.5 rounded-2xl bg-white border ${
                           micro.completada
                             ? "border-slate-100 opacity-60"
                             : "border-slate-200 shadow-sm"
-                        } cursor-pointer hover:border-blue-300 transition-all group`}
-                        onClick={() => onToggleMicro(proyecto.id, micro.id)}
+                        } hover:border-blue-300 transition-all group`}
                       >
-                        <div className="relative flex items-center justify-center w-6 h-6 flex-shrink-0">
-                          <div
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                              micro.completada
-                                ? "bg-blue-500 border-blue-500"
-                                : "border-slate-300 bg-white"
-                            }`}
-                          >
-                            {micro.completada && (
-                              <Check className="w-3 h-3 text-white" />
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <h4
-                            className={`font-bold text-[13px] leading-tight ${
-                              micro.completada
-                                ? "line-through text-slate-400"
-                                : "text-slate-700"
-                            }`}
-                          >
-                            {mIndex + 1}. {micro.titulo}
-                          </h4>
-                          <div className="flex items-center gap-1.5 mt-1.5 text-slate-400">
-                            <Clock className="w-3 h-3" />
-                            <span className="text-[10px] font-semibold">
-                              {micro.tiempo}
-                            </span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpenTask({
-                              curso: proyecto.curso,
-                              titulo: micro.titulo,
-                              descripcion: micro.descripcion,
-                            });
-                          }}
-                          className="p-2 text-slate-300 hover:text-blue-500 transition-colors bg-slate-50 rounded-xl group-hover:bg-blue-50"
+                        <div
+                          className="flex items-center gap-3 cursor-pointer"
+                          onClick={() =>
+                            micro.completada
+                              ? onToggleMicro(proyecto.id, micro.id)
+                              : micro.modo_estricto
+                                ? onAbrirEvidencia(proyecto, micro)
+                                : onToggleMicro(proyecto.id, micro.id)
+                          }
                         >
-                          <Info className="w-4 h-4" />
-                        </button>
+                          <div className="relative flex items-center justify-center w-6 h-6 flex-shrink-0">
+                            <div
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                micro.completada
+                                  ? "bg-blue-500 border-blue-500"
+                                  : "border-slate-300 bg-white"
+                              }`}
+                            >
+                              {micro.completada && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <h4
+                              className={`font-bold text-[13px] leading-tight ${
+                                micro.completada
+                                  ? "line-through text-slate-400"
+                                  : "text-slate-700"
+                              }`}
+                            >
+                              {mIndex + 1}. {micro.titulo}
+                            </h4>
+                            <div className="flex items-center gap-1.5 mt-1.5 text-slate-400">
+                              <Clock className="w-3 h-3" />
+                              <span className="text-[10px] font-semibold">
+                                {micro.tiempo}
+                              </span>
+                              {micro.modo_estricto && !micro.completada && (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-amber-500 ml-1">
+                                  <ShieldCheck className="w-3 h-3" /> Exige prueba
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenTask({
+                                curso: proyecto.curso,
+                                titulo: micro.titulo,
+                                descripcion: micro.descripcion,
+                              });
+                            }}
+                            className="p-2 text-slate-300 hover:text-blue-500 transition-colors bg-slate-50 rounded-xl group-hover:bg-blue-50"
+                          >
+                            <Info className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {micro.motivo_rechazo && !micro.completada && (
+                          <p className="text-[11px] text-red-500 font-medium mt-2 ml-9 leading-snug">
+                            La IA rechazó tu último intento: {micro.motivo_rechazo}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>

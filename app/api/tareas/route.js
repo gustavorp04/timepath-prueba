@@ -15,7 +15,8 @@ export async function GET() {
   `;
 
   const micros = await sql`
-    SELECT m.id, m.proyecto_id, m.titulo, m.descripcion, m.tiempo, m.completada
+    SELECT m.id, m.proyecto_id, m.titulo, m.descripcion, m.tiempo, m.completada,
+           m.modo_estricto, m.verificada, m.intentos, m.motivo_rechazo
     FROM microtareas m
     JOIN proyectos p ON p.id = m.proyecto_id
     WHERE p.usuario_id = ${user.id}
@@ -42,7 +43,7 @@ export async function POST(request) {
   const user = await getUser();
   if (!user) return Response.json({ error: "No autorizado" }, { status: 401 });
 
-  const { curso, fecha, descripcion, microtareas, resumen } = await request.json();
+  const { curso, fecha, descripcion, microtareas, resumen, modoExigente } = await request.json();
   if (!curso || !fecha) {
     return Response.json({ error: "Faltan curso o fecha" }, { status: 400 });
   }
@@ -53,6 +54,7 @@ export async function POST(request) {
     descripcion,
     microtareas,
     resumen,
+    modoExigente: !!modoExigente,
   });
 
   return Response.json({ ok: true, proyectoId });

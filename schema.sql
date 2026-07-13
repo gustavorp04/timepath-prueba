@@ -30,7 +30,11 @@ CREATE TABLE IF NOT EXISTS microtareas (
     descripcion TEXT NOT NULL,
     tiempo TEXT NOT NULL,            -- ej: "15 min"
     orden INT NOT NULL DEFAULT 1,
-    completada BOOLEAN NOT NULL DEFAULT FALSE
+    completada BOOLEAN NOT NULL DEFAULT FALSE,
+    modo_estricto BOOLEAN NOT NULL DEFAULT FALSE,  -- pide evidencia verificada por IA antes de completar
+    verificada BOOLEAN NOT NULL DEFAULT FALSE,     -- la IA aceptó la última evidencia enviada
+    intentos INT NOT NULL DEFAULT 0,               -- cuántas veces se envió evidencia
+    motivo_rechazo TEXT                            -- feedback de la IA en el último rechazo
 );
 
 -- Usuarios de prueba para los entrevistados (password "123")
@@ -50,3 +54,7 @@ ON CONFLICT (username) DO NOTHING;
 ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS resumen TEXT;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS whatsapp_wa_id TEXT UNIQUE;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS captura_pendiente JSONB;
+ALTER TABLE microtareas ADD COLUMN IF NOT EXISTS modo_estricto BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE microtareas ADD COLUMN IF NOT EXISTS verificada BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE microtareas ADD COLUMN IF NOT EXISTS intentos INT NOT NULL DEFAULT 0;
+ALTER TABLE microtareas ADD COLUMN IF NOT EXISTS motivo_rechazo TEXT;

@@ -8,6 +8,7 @@ import ScreenCaptura from "@/components/ScreenCaptura";
 import ScreenProgreso from "@/components/ScreenProgreso";
 import TaskModal from "@/components/TaskModal";
 import IAModal from "@/components/IAModal";
+import ModalEvidencia from "@/components/ModalEvidencia";
 
 const CONFETTI_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
@@ -19,6 +20,7 @@ export default function AppShell({ username }) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [rachaBump, setRachaBump] = useState(false);
   const [taskModalData, setTaskModalData] = useState(null);
+  const [evidenciaData, setEvidenciaData] = useState(null); // { proyecto, micro }
   const [captura, setCaptura] = useState(null); // { tipo, archivo }
   const [confetti, setConfetti] = useState([]);
   const celebrandoRef = useRef(false);
@@ -121,6 +123,44 @@ export default function AppShell({ username }) {
     } catch {}
   }
 
+  function actualizarMicro(microId, cambios) {
+    setProyectos((prev) =>
+      prev.map((p) => ({
+        ...p,
+        microtareas: p.microtareas.map((m) =>
+          m.id === microId ? { ...m, ...cambios } : m
+        ),
+      }))
+    );
+  }
+
+  function abrirEvidencia(proyecto, micro) {
+    setEvidenciaData({ proyecto, micro });
+  }
+
+  async function enviarEvidencia({ archivo, texto }) {
+    const microId = evidenciaData.micro.id;
+    const form = new FormData();
+    if (archivo) form.append("archivo", archivo);
+    if (texto) form.append("texto", texto);
+
+    const res = await fetch(`/api/microtareas/${microId}/verificar`, {
+      method: "POST",
+      body: form,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "No se pudo verificar la evidencia");
+
+    actualizarMicro(microId, {
+      completada: data.microtarea.completada,
+      verificada: data.microtarea.verificada,
+      intentos: data.microtarea.intentos,
+      motivo_rechazo: data.microtarea.motivo_rechazo,
+    });
+
+    return data;
+  }
+
   async function confirmarCaptura(datos) {
     // datos = { curso, fecha, descripcion, microtareas, resumen } (todo lo de Gemini)
     const res = await fetch("/api/tareas", {
@@ -175,6 +215,7 @@ export default function AppShell({ username }) {
               onToggleMicro={alternarMicrotarea}
               onOpenTask={setTaskModalData}
               onLogout={cerrarSesion}
+              onAbrirEvidencia={abrirEvidencia}
             />
           )}
           {pantalla === "calendario" && <ScreenCalendario proyectos={proyectos} />}
@@ -189,6 +230,11 @@ export default function AppShell({ username }) {
         </div>
 
         <TaskModal data={taskModalData} onClose={() => setTaskModalData(null)} />
+        <ModalEvidencia
+          data={evidenciaData}
+          onEnviar={enviarEvidencia}
+          onClose={() => setEvidenciaData(null)}
+        />
         <IAModal
           captura={captura}
           onConfirmar={confirmarCaptura}
