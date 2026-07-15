@@ -1,120 +1,251 @@
 -- =============================================================
--- TimePath - Datos DEMO (opcional)
--- Simula que cada usuario ya usó la app varios días:
--- rachas distintas, un proyecto pasado ya completado y uno activo a medias.
--- Ejecutar en el SQL Editor de Neon DESPUÉS de schema.sql.
---
--- OJO: no dejes a ningún usuario con TODAS sus microtareas completadas,
--- porque al entrar le saldría de inmediato la pantalla de "¡Día conquistado!".
--- Por eso cada usuario tiene un proyecto activo con tareas pendientes.
+-- TimePath - Datos de DEMO: 15 usuarios en semana de finales
+-- (primeros ciclos de universidad). Pensado para ejecutarse el 2026-07-15.
+-- ¡OJO! BORRA todos los usuarios, proyectos y microtareas actuales.
+-- Pega TODO este archivo en el SQL Editor de Neon y ejecútalo.
 -- =============================================================
+BEGIN;
 
--- Rachas distintas por usuario
-UPDATE usuarios SET racha = 7,  racha_actualizada = NULL WHERE username = 'usuario1';
-UPDATE usuarios SET racha = 12, racha_actualizada = NULL WHERE username = 'usuario2';
-UPDATE usuarios SET racha = 3,  racha_actualizada = NULL WHERE username = 'usuario3';
-UPDATE usuarios SET racha = 9,  racha_actualizada = NULL WHERE username = 'usuario4';
-UPDATE usuarios SET racha = 5,  racha_actualizada = NULL WHERE username = 'usuario5';
+TRUNCATE microtareas, proyectos, usuarios RESTART IDENTITY CASCADE;
 
--- ---------- usuario1 ----------
-WITH u AS (SELECT id FROM usuarios WHERE username = 'usuario1'),
-p AS (
-  INSERT INTO proyectos (usuario_id, curso, descripcion, fecha_entrega, creado_en)
-  SELECT id, 'Cálculo Avanzado', 'Taller de Integrales', CURRENT_DATE - 2, now() - interval '3 days' FROM u
-  RETURNING id
-)
-INSERT INTO microtareas (proyecto_id, titulo, descripcion, tiempo, orden, completada)
-SELECT p.id, x.* FROM p, (VALUES
-  ('Resolver guía de ejercicios', 'Resolver los 10 ejercicios de integrales por partes de la guía del profesor.', '30 min', 1, TRUE),
-  ('Verificar con solucionario', 'Comparar resultados con el solucionario y corregir los que salieron mal.', '15 min', 2, TRUE)
-) AS x(titulo, descripcion, tiempo, orden, completada);
+INSERT INTO usuarios (id, username, password, racha, racha_actualizada, whatsapp_wa_id) VALUES
+    (1, 'usuario1', '123', 3, '2026-07-14', '51912961609'),
+    (2, 'usuario2', '123', 1, '2026-07-14', NULL),
+    (3, 'usuario3', '123', 0, NULL, NULL),
+    (4, 'usuario4', '123', 2, '2026-07-14', NULL),
+    (5, 'usuario5', '123', 3, '2026-07-14', NULL),
+    (6, 'usuario6', '123', 0, NULL, NULL),
+    (7, 'usuario7', '123', 1, '2026-07-14', NULL),
+    (8, 'usuario8', '123', 2, '2026-07-14', NULL),
+    (9, 'usuario9', '123', 0, NULL, NULL),
+    (10, 'usuario10', '123', 3, '2026-07-14', NULL),
+    (11, 'usuario11', '123', 1, '2026-07-14', NULL),
+    (12, 'usuario12', '123', 0, NULL, NULL),
+    (13, 'usuario13', '123', 2, '2026-07-14', NULL),
+    (14, 'usuario14', '123', 1, '2026-07-14', NULL),
+    (15, 'usuario15', '123', 0, NULL, NULL);
 
-WITH u AS (SELECT id FROM usuarios WHERE username = 'usuario1'),
-p AS (
-  INSERT INTO proyectos (usuario_id, curso, descripcion, fecha_entrega, creado_en)
-  SELECT id, 'Algoritmos y Estructuras', 'Proyecto Backend Final', CURRENT_DATE + 5, now() - interval '1 day' FROM u
-  RETURNING id
-)
-INSERT INTO microtareas (proyecto_id, titulo, descripcion, tiempo, orden, completada)
-SELECT p.id, x.* FROM p, (VALUES
-  ('Diseñar el modelo de datos', 'Dibujar el diagrama entidad-relación con las 4 tablas principales del proyecto.', '25 min', 1, TRUE),
-  ('Implementar endpoints CRUD', 'Programar los endpoints de crear y listar usando el framework visto en clase.', '40 min', 2, FALSE),
-  ('Escribir pruebas básicas', 'Probar los endpoints con 3 casos: éxito, dato inválido y recurso inexistente.', '20 min', 3, FALSE)
-) AS x(titulo, descripcion, tiempo, orden, completada);
+INSERT INTO proyectos (id, usuario_id, curso, descripcion, fecha_entrega, resumen) VALUES
+    (1, 1, 'Cálculo I', 'Estudiar final de Cálculo I', '2026-07-17', NULL),
+    (2, 1, 'Álgebra Lineal', 'Final: matrices y sistemas', '2026-07-18', NULL),
+    (3, 1, 'Química General', 'Estudiar final de Química', '2026-07-19', 'El examen final cubre tres bloques: estructura atómica y tabla periódica, enlaces químicos y estequiometría. La clave está en dominar el balanceo de ecuaciones y la conversión entre gramos y moles usando la masa molar. Repasa primero la teoría de enlaces (iónico, covalente y metálico) porque de ahí salen las preguntas conceptuales, y deja un día completo solo para problemas de estequiometría, que valen la mitad del examen.'),
+    (4, 1, 'Cálculo I', 'Práctica calificada 4', '2026-07-11', NULL),
+    (5, 2, 'Física I', 'Estudiar final de cinemática', '2026-07-16', NULL),
+    (6, 2, 'Intro a la Programación', 'Proyecto final: sistema de notas', '2026-07-18', NULL),
+    (7, 2, 'Comunicación', 'Ensayo final argumentativo', '2026-07-19', NULL),
+    (8, 3, 'Metodología del Estudio', 'Monografía final', '2026-07-16', NULL),
+    (9, 3, 'Estadística Descriptiva', 'Trabajo final: encuesta', '2026-07-17', NULL),
+    (10, 3, 'Matemática Básica', 'Examen final: funciones', '2026-07-19', NULL),
+    (11, 4, 'Economía General', 'Final: oferta y demanda', '2026-07-16', NULL),
+    (12, 4, 'Psicología General', 'Exposición final del curso', '2026-07-17', 'El tema central de la exposición es la motivación: la diferencia entre motivación intrínseca (hacer algo porque te interesa) y extrínseca (hacerlo por una recompensa o castigo). La pirámide de Maslow ordena las necesidades desde las fisiológicas hasta la autorrealización, y sirve para explicar por qué una persona actúa distinto según lo que le falta. Para la exposición conviene abrir con un ejemplo cotidiano y cerrar conectando la teoría con la vida universitaria.'),
+    (13, 4, 'Redacción Universitaria', 'Artículo de opinión final', '2026-07-18', NULL),
+    (14, 4, 'Cálculo I', 'Práctica calificada 4', '2026-07-11', NULL),
+    (15, 5, 'Cálculo I', 'Estudiar final de Cálculo I', '2026-07-17', NULL),
+    (16, 5, 'Álgebra Lineal', 'Final: matrices y sistemas', '2026-07-18', NULL),
+    (17, 5, 'Química General', 'Estudiar final de Química', '2026-07-19', 'El examen final cubre tres bloques: estructura atómica y tabla periódica, enlaces químicos y estequiometría. La clave está en dominar el balanceo de ecuaciones y la conversión entre gramos y moles usando la masa molar. Repasa primero la teoría de enlaces (iónico, covalente y metálico) porque de ahí salen las preguntas conceptuales, y deja un día completo solo para problemas de estequiometría, que valen la mitad del examen.'),
+    (18, 6, 'Física I', 'Estudiar final de cinemática', '2026-07-16', NULL),
+    (19, 6, 'Intro a la Programación', 'Proyecto final: sistema de notas', '2026-07-18', NULL),
+    (20, 6, 'Comunicación', 'Ensayo final argumentativo', '2026-07-19', NULL),
+    (21, 7, 'Metodología del Estudio', 'Monografía final', '2026-07-16', NULL),
+    (22, 7, 'Estadística Descriptiva', 'Trabajo final: encuesta', '2026-07-17', NULL),
+    (23, 7, 'Matemática Básica', 'Examen final: funciones', '2026-07-19', NULL),
+    (24, 7, 'Cálculo I', 'Práctica calificada 4', '2026-07-11', NULL),
+    (25, 8, 'Economía General', 'Final: oferta y demanda', '2026-07-16', NULL),
+    (26, 8, 'Psicología General', 'Exposición final del curso', '2026-07-17', 'El tema central de la exposición es la motivación: la diferencia entre motivación intrínseca (hacer algo porque te interesa) y extrínseca (hacerlo por una recompensa o castigo). La pirámide de Maslow ordena las necesidades desde las fisiológicas hasta la autorrealización, y sirve para explicar por qué una persona actúa distinto según lo que le falta. Para la exposición conviene abrir con un ejemplo cotidiano y cerrar conectando la teoría con la vida universitaria.'),
+    (27, 8, 'Redacción Universitaria', 'Artículo de opinión final', '2026-07-18', NULL),
+    (28, 9, 'Cálculo I', 'Estudiar final de Cálculo I', '2026-07-17', NULL),
+    (29, 9, 'Álgebra Lineal', 'Final: matrices y sistemas', '2026-07-18', NULL),
+    (30, 9, 'Química General', 'Estudiar final de Química', '2026-07-19', 'El examen final cubre tres bloques: estructura atómica y tabla periódica, enlaces químicos y estequiometría. La clave está en dominar el balanceo de ecuaciones y la conversión entre gramos y moles usando la masa molar. Repasa primero la teoría de enlaces (iónico, covalente y metálico) porque de ahí salen las preguntas conceptuales, y deja un día completo solo para problemas de estequiometría, que valen la mitad del examen.'),
+    (31, 10, 'Física I', 'Estudiar final de cinemática', '2026-07-16', NULL),
+    (32, 10, 'Intro a la Programación', 'Proyecto final: sistema de notas', '2026-07-18', NULL),
+    (33, 10, 'Comunicación', 'Ensayo final argumentativo', '2026-07-19', NULL),
+    (34, 10, 'Cálculo I', 'Práctica calificada 4', '2026-07-11', NULL),
+    (35, 11, 'Metodología del Estudio', 'Monografía final', '2026-07-16', NULL),
+    (36, 11, 'Estadística Descriptiva', 'Trabajo final: encuesta', '2026-07-17', NULL),
+    (37, 11, 'Matemática Básica', 'Examen final: funciones', '2026-07-19', NULL),
+    (38, 12, 'Economía General', 'Final: oferta y demanda', '2026-07-16', NULL),
+    (39, 12, 'Psicología General', 'Exposición final del curso', '2026-07-17', 'El tema central de la exposición es la motivación: la diferencia entre motivación intrínseca (hacer algo porque te interesa) y extrínseca (hacerlo por una recompensa o castigo). La pirámide de Maslow ordena las necesidades desde las fisiológicas hasta la autorrealización, y sirve para explicar por qué una persona actúa distinto según lo que le falta. Para la exposición conviene abrir con un ejemplo cotidiano y cerrar conectando la teoría con la vida universitaria.'),
+    (40, 12, 'Redacción Universitaria', 'Artículo de opinión final', '2026-07-18', NULL),
+    (41, 13, 'Cálculo I', 'Estudiar final de Cálculo I', '2026-07-17', NULL),
+    (42, 13, 'Álgebra Lineal', 'Final: matrices y sistemas', '2026-07-18', NULL),
+    (43, 13, 'Química General', 'Estudiar final de Química', '2026-07-19', 'El examen final cubre tres bloques: estructura atómica y tabla periódica, enlaces químicos y estequiometría. La clave está en dominar el balanceo de ecuaciones y la conversión entre gramos y moles usando la masa molar. Repasa primero la teoría de enlaces (iónico, covalente y metálico) porque de ahí salen las preguntas conceptuales, y deja un día completo solo para problemas de estequiometría, que valen la mitad del examen.'),
+    (44, 13, 'Cálculo I', 'Práctica calificada 4', '2026-07-11', NULL),
+    (45, 14, 'Física I', 'Estudiar final de cinemática', '2026-07-16', NULL),
+    (46, 14, 'Intro a la Programación', 'Proyecto final: sistema de notas', '2026-07-18', NULL),
+    (47, 14, 'Comunicación', 'Ensayo final argumentativo', '2026-07-19', NULL),
+    (48, 15, 'Metodología del Estudio', 'Monografía final', '2026-07-16', NULL),
+    (49, 15, 'Estadística Descriptiva', 'Trabajo final: encuesta', '2026-07-17', NULL),
+    (50, 15, 'Matemática Básica', 'Examen final: funciones', '2026-07-19', NULL);
 
--- ---------- usuario2 ----------
-WITH u AS (SELECT id FROM usuarios WHERE username = 'usuario2'),
-p AS (
-  INSERT INTO proyectos (usuario_id, curso, descripcion, fecha_entrega, creado_en)
-  SELECT id, 'Física III', 'Informe Lab de Ondas', CURRENT_DATE - 1, now() - interval '4 days' FROM u
-  RETURNING id
-)
-INSERT INTO microtareas (proyecto_id, titulo, descripcion, tiempo, orden, completada)
-SELECT p.id, x.* FROM p, (VALUES
-  ('Tabular datos del laboratorio', 'Pasar las mediciones del cuaderno a una hoja de cálculo con sus unidades.', '20 min', 1, TRUE),
-  ('Graficar y concluir', 'Generar las 2 gráficas de frecuencia y escribir las conclusiones del informe.', '30 min', 2, TRUE)
-) AS x(titulo, descripcion, tiempo, orden, completada);
+INSERT INTO microtareas (proyecto_id, titulo, descripcion, tiempo, orden, completada, fecha_asignada) VALUES
+    (1, 'Repasar límites y continuidad', 'Releer los apuntes de límites y resolver los 5 ejemplos de clase.', '30 min', 1, true, '2026-07-13'),
+    (1, 'Resolver derivadas de la guía', 'Hacer los ejercicios 1 al 10 de la guía de derivadas del profesor.', '45 min', 2, true, '2026-07-13'),
+    (1, 'Practicar integrales básicas', 'Resolver las integrales inmediatas de la práctica 6.', '40 min', 3, true, '2026-07-14'),
+    (1, 'Simulacro de examen final', 'Resolver el examen del ciclo pasado con cronómetro, sin apuntes.', '45 min', 4, true, '2026-07-14'),
+    (2, 'Repasar operaciones con matrices', 'Repasar suma, producto y transpuesta con los ejemplos del cuaderno.', '30 min', 1, false, '2026-07-15'),
+    (2, 'Resolver sistemas de ecuaciones', 'Resolver 6 sistemas por Gauss de la guía de repaso.', '40 min', 2, false, '2026-07-15'),
+    (2, 'Practicar determinantes', 'Calcular determinantes 2x2 y 3x3 de la práctica calificada anterior.', '35 min', 3, false, '2026-07-16'),
+    (3, 'Repasar tabla periódica y enlaces', 'Repasar grupos, periodos y tipos de enlace con el resumen de clase.', '30 min', 1, false, '2026-07-16'),
+    (3, 'Balancear ecuaciones de la guía', 'Balancear las 12 ecuaciones de la guía por tanteo.', '40 min', 2, false, '2026-07-17'),
+    (3, 'Resolver problemas de moles', 'Hacer los problemas de estequiometría 1 al 8 de la separata.', '45 min', 3, false, '2026-07-17'),
+    (4, 'Resolver la práctica', 'Resolver los 8 ejercicios de la práctica calificada.', '45 min', 1, TRUE, '2026-07-09'),
+    (4, 'Verificar con solucionario', 'Comparar con el solucionario y corregir errores.', '20 min', 2, TRUE, '2026-07-10'),
+    (5, 'Repasar MRU y MRUV', 'Releer fórmulas y resolver los 4 ejemplos del cuaderno.', '30 min', 1, true, '2026-07-13'),
+    (5, 'Resolver problemas de caída libre', 'Hacer los problemas 1 al 6 de la guía de caída libre.', '40 min', 2, true, '2026-07-13'),
+    (5, 'Simulacro con examen pasado', 'Resolver el examen final del ciclo anterior midiendo el tiempo.', '45 min', 3, true, '2026-07-14'),
+    (6, 'Diseñar el diagrama de flujo', 'Dibujar el flujo del programa: menú, registro y promedio de notas.', '30 min', 1, true, '2026-07-14'),
+    (6, 'Programar el menú principal', 'Programar el menú con opciones usando condicionales y bucle.', '45 min', 2, false, '2026-07-15'),
+    (6, 'Programar registro de notas', 'Programar el ingreso de notas a una lista y el cálculo del promedio.', '45 min', 3, false, '2026-07-15'),
+    (6, 'Probar y corregir errores', 'Probar el programa con 3 casos y corregir lo que falle.', '30 min', 4, false, '2026-07-16'),
+    (7, 'Elegir tema y buscar 3 fuentes', 'Definir el tema del ensayo y guardar 3 fuentes confiables.', '30 min', 1, false, '2026-07-16'),
+    (7, 'Redactar introducción y tesis', 'Escribir la introducción con la tesis clara en el último párrafo.', '35 min', 2, false, '2026-07-17'),
+    (7, 'Redactar el cuerpo del ensayo', 'Desarrollar los 3 argumentos, uno por párrafo, con sus citas.', '45 min', 3, false, '2026-07-17'),
+    (7, 'Revisar ortografía y citas APA', 'Pasar corrector, revisar tildes y dar formato APA a las citas.', '25 min', 4, false, '2026-07-18'),
+    (8, 'Ordenar fichas de resumen', 'Ordenar las fichas por subtema según el índice de la monografía.', '25 min', 1, true, '2026-07-13'),
+    (8, 'Redactar marco teórico', 'Redactar el marco teórico usando las fichas ya ordenadas.', '45 min', 2, true, '2026-07-13'),
+    (8, 'Redactar conclusiones', 'Escribir 3 conclusiones que respondan a los objetivos.', '30 min', 3, true, '2026-07-14'),
+    (8, 'Armar diapositivas de sustentación', 'Preparar 8 diapositivas simples para la sustentación.', '35 min', 4, true, '2026-07-14'),
+    (9, 'Tabular resultados de la encuesta', 'Pasar las 30 respuestas de la encuesta a la hoja de cálculo.', '35 min', 1, false, '2026-07-15'),
+    (9, 'Calcular media, mediana y moda', 'Calcular las medidas de tendencia central por pregunta.', '30 min', 2, false, '2026-07-15'),
+    (9, 'Hacer gráficos en Excel', 'Crear los gráficos de barras y circular de los resultados.', '30 min', 3, false, '2026-07-16'),
+    (9, 'Redactar interpretación', 'Escribir la interpretación de cada gráfico en el informe.', '25 min', 4, false, '2026-07-16'),
+    (10, 'Repasar funciones lineales', 'Repasar pendiente e intercepto con los ejercicios de clase.', '25 min', 1, true, '2026-07-14'),
+    (10, 'Graficar funciones cuadráticas', 'Graficar 5 parábolas hallando vértice y raíces.', '35 min', 2, false, '2026-07-16'),
+    (10, 'Resolver guía de repaso completa', 'Resolver la guía de repaso que dejó el profesor para el final.', '45 min', 3, false, '2026-07-17'),
+    (11, 'Repasar elasticidades', 'Repasar elasticidad precio de la demanda con los ejemplos de clase.', '30 min', 1, true, '2026-07-13'),
+    (11, 'Resolver casos prácticos', 'Resolver los 5 casos de equilibrio de mercado de la guía.', '40 min', 2, true, '2026-07-13'),
+    (11, 'Hacer resumen de fórmulas', 'Armar una hoja resumen con todas las fórmulas del curso.', '20 min', 3, true, '2026-07-13'),
+    (12, 'Leer capítulo de motivación', 'Leer el capítulo asignado y subrayar las ideas principales.', '35 min', 1, true, '2026-07-14'),
+    (12, 'Hacer mapa conceptual', 'Convertir lo subrayado en un mapa conceptual de una página.', '30 min', 2, true, '2026-07-14'),
+    (12, 'Preparar guion de exposición', 'Escribir el guion de 5 minutos y ensayarlo una vez en voz alta.', '30 min', 3, false, '2026-07-15'),
+    (13, 'Hacer el esquema del artículo', 'Definir postura y ordenar las 3 ideas de apoyo en un esquema.', '25 min', 1, true, '2026-07-14'),
+    (13, 'Redactar el borrador completo', 'Escribir el borrador del artículo siguiendo el esquema.', '45 min', 2, false, '2026-07-15'),
+    (13, 'Corregir con la rúbrica', 'Revisar el borrador punto por punto con la rúbrica del curso.', '30 min', 3, false, '2026-07-16'),
+    (14, 'Resolver la práctica', 'Resolver los 8 ejercicios de la práctica calificada.', '45 min', 1, TRUE, '2026-07-09'),
+    (14, 'Verificar con solucionario', 'Comparar con el solucionario y corregir errores.', '20 min', 2, TRUE, '2026-07-10'),
+    (15, 'Repasar límites y continuidad', 'Releer los apuntes de límites y resolver los 5 ejemplos de clase.', '30 min', 1, true, '2026-07-13'),
+    (15, 'Resolver derivadas de la guía', 'Hacer los ejercicios 1 al 10 de la guía de derivadas del profesor.', '45 min', 2, true, '2026-07-13'),
+    (15, 'Practicar integrales básicas', 'Resolver las integrales inmediatas de la práctica 6.', '40 min', 3, true, '2026-07-14'),
+    (15, 'Simulacro de examen final', 'Resolver el examen del ciclo pasado con cronómetro, sin apuntes.', '45 min', 4, true, '2026-07-14'),
+    (16, 'Repasar operaciones con matrices', 'Repasar suma, producto y transpuesta con los ejemplos del cuaderno.', '30 min', 1, false, '2026-07-15'),
+    (16, 'Resolver sistemas de ecuaciones', 'Resolver 6 sistemas por Gauss de la guía de repaso.', '40 min', 2, false, '2026-07-15'),
+    (16, 'Practicar determinantes', 'Calcular determinantes 2x2 y 3x3 de la práctica calificada anterior.', '35 min', 3, false, '2026-07-16'),
+    (17, 'Repasar tabla periódica y enlaces', 'Repasar grupos, periodos y tipos de enlace con el resumen de clase.', '30 min', 1, false, '2026-07-16'),
+    (17, 'Balancear ecuaciones de la guía', 'Balancear las 12 ecuaciones de la guía por tanteo.', '40 min', 2, false, '2026-07-17'),
+    (17, 'Resolver problemas de moles', 'Hacer los problemas de estequiometría 1 al 8 de la separata.', '45 min', 3, false, '2026-07-17'),
+    (18, 'Repasar MRU y MRUV', 'Releer fórmulas y resolver los 4 ejemplos del cuaderno.', '30 min', 1, true, '2026-07-13'),
+    (18, 'Resolver problemas de caída libre', 'Hacer los problemas 1 al 6 de la guía de caída libre.', '40 min', 2, true, '2026-07-13'),
+    (18, 'Simulacro con examen pasado', 'Resolver el examen final del ciclo anterior midiendo el tiempo.', '45 min', 3, true, '2026-07-14'),
+    (19, 'Diseñar el diagrama de flujo', 'Dibujar el flujo del programa: menú, registro y promedio de notas.', '30 min', 1, true, '2026-07-14'),
+    (19, 'Programar el menú principal', 'Programar el menú con opciones usando condicionales y bucle.', '45 min', 2, false, '2026-07-15'),
+    (19, 'Programar registro de notas', 'Programar el ingreso de notas a una lista y el cálculo del promedio.', '45 min', 3, false, '2026-07-15'),
+    (19, 'Probar y corregir errores', 'Probar el programa con 3 casos y corregir lo que falle.', '30 min', 4, false, '2026-07-16'),
+    (20, 'Elegir tema y buscar 3 fuentes', 'Definir el tema del ensayo y guardar 3 fuentes confiables.', '30 min', 1, false, '2026-07-16'),
+    (20, 'Redactar introducción y tesis', 'Escribir la introducción con la tesis clara en el último párrafo.', '35 min', 2, false, '2026-07-17'),
+    (20, 'Redactar el cuerpo del ensayo', 'Desarrollar los 3 argumentos, uno por párrafo, con sus citas.', '45 min', 3, false, '2026-07-17'),
+    (20, 'Revisar ortografía y citas APA', 'Pasar corrector, revisar tildes y dar formato APA a las citas.', '25 min', 4, false, '2026-07-18'),
+    (21, 'Ordenar fichas de resumen', 'Ordenar las fichas por subtema según el índice de la monografía.', '25 min', 1, true, '2026-07-13'),
+    (21, 'Redactar marco teórico', 'Redactar el marco teórico usando las fichas ya ordenadas.', '45 min', 2, true, '2026-07-13'),
+    (21, 'Redactar conclusiones', 'Escribir 3 conclusiones que respondan a los objetivos.', '30 min', 3, true, '2026-07-14'),
+    (21, 'Armar diapositivas de sustentación', 'Preparar 8 diapositivas simples para la sustentación.', '35 min', 4, true, '2026-07-14'),
+    (22, 'Tabular resultados de la encuesta', 'Pasar las 30 respuestas de la encuesta a la hoja de cálculo.', '35 min', 1, false, '2026-07-15'),
+    (22, 'Calcular media, mediana y moda', 'Calcular las medidas de tendencia central por pregunta.', '30 min', 2, false, '2026-07-15'),
+    (22, 'Hacer gráficos en Excel', 'Crear los gráficos de barras y circular de los resultados.', '30 min', 3, false, '2026-07-16'),
+    (22, 'Redactar interpretación', 'Escribir la interpretación de cada gráfico en el informe.', '25 min', 4, false, '2026-07-16'),
+    (23, 'Repasar funciones lineales', 'Repasar pendiente e intercepto con los ejercicios de clase.', '25 min', 1, true, '2026-07-14'),
+    (23, 'Graficar funciones cuadráticas', 'Graficar 5 parábolas hallando vértice y raíces.', '35 min', 2, false, '2026-07-16'),
+    (23, 'Resolver guía de repaso completa', 'Resolver la guía de repaso que dejó el profesor para el final.', '45 min', 3, false, '2026-07-17'),
+    (24, 'Resolver la práctica', 'Resolver los 8 ejercicios de la práctica calificada.', '45 min', 1, TRUE, '2026-07-09'),
+    (24, 'Verificar con solucionario', 'Comparar con el solucionario y corregir errores.', '20 min', 2, TRUE, '2026-07-10'),
+    (25, 'Repasar elasticidades', 'Repasar elasticidad precio de la demanda con los ejemplos de clase.', '30 min', 1, true, '2026-07-13'),
+    (25, 'Resolver casos prácticos', 'Resolver los 5 casos de equilibrio de mercado de la guía.', '40 min', 2, true, '2026-07-13'),
+    (25, 'Hacer resumen de fórmulas', 'Armar una hoja resumen con todas las fórmulas del curso.', '20 min', 3, true, '2026-07-13'),
+    (26, 'Leer capítulo de motivación', 'Leer el capítulo asignado y subrayar las ideas principales.', '35 min', 1, true, '2026-07-14'),
+    (26, 'Hacer mapa conceptual', 'Convertir lo subrayado en un mapa conceptual de una página.', '30 min', 2, true, '2026-07-14'),
+    (26, 'Preparar guion de exposición', 'Escribir el guion de 5 minutos y ensayarlo una vez en voz alta.', '30 min', 3, false, '2026-07-15'),
+    (27, 'Hacer el esquema del artículo', 'Definir postura y ordenar las 3 ideas de apoyo en un esquema.', '25 min', 1, true, '2026-07-14'),
+    (27, 'Redactar el borrador completo', 'Escribir el borrador del artículo siguiendo el esquema.', '45 min', 2, false, '2026-07-15'),
+    (27, 'Corregir con la rúbrica', 'Revisar el borrador punto por punto con la rúbrica del curso.', '30 min', 3, false, '2026-07-16'),
+    (28, 'Repasar límites y continuidad', 'Releer los apuntes de límites y resolver los 5 ejemplos de clase.', '30 min', 1, true, '2026-07-13'),
+    (28, 'Resolver derivadas de la guía', 'Hacer los ejercicios 1 al 10 de la guía de derivadas del profesor.', '45 min', 2, true, '2026-07-13'),
+    (28, 'Practicar integrales básicas', 'Resolver las integrales inmediatas de la práctica 6.', '40 min', 3, true, '2026-07-14'),
+    (28, 'Simulacro de examen final', 'Resolver el examen del ciclo pasado con cronómetro, sin apuntes.', '45 min', 4, true, '2026-07-14'),
+    (29, 'Repasar operaciones con matrices', 'Repasar suma, producto y transpuesta con los ejemplos del cuaderno.', '30 min', 1, false, '2026-07-15'),
+    (29, 'Resolver sistemas de ecuaciones', 'Resolver 6 sistemas por Gauss de la guía de repaso.', '40 min', 2, false, '2026-07-15'),
+    (29, 'Practicar determinantes', 'Calcular determinantes 2x2 y 3x3 de la práctica calificada anterior.', '35 min', 3, false, '2026-07-16'),
+    (30, 'Repasar tabla periódica y enlaces', 'Repasar grupos, periodos y tipos de enlace con el resumen de clase.', '30 min', 1, false, '2026-07-16'),
+    (30, 'Balancear ecuaciones de la guía', 'Balancear las 12 ecuaciones de la guía por tanteo.', '40 min', 2, false, '2026-07-17'),
+    (30, 'Resolver problemas de moles', 'Hacer los problemas de estequiometría 1 al 8 de la separata.', '45 min', 3, false, '2026-07-17'),
+    (31, 'Repasar MRU y MRUV', 'Releer fórmulas y resolver los 4 ejemplos del cuaderno.', '30 min', 1, true, '2026-07-13'),
+    (31, 'Resolver problemas de caída libre', 'Hacer los problemas 1 al 6 de la guía de caída libre.', '40 min', 2, true, '2026-07-13'),
+    (31, 'Simulacro con examen pasado', 'Resolver el examen final del ciclo anterior midiendo el tiempo.', '45 min', 3, true, '2026-07-14'),
+    (32, 'Diseñar el diagrama de flujo', 'Dibujar el flujo del programa: menú, registro y promedio de notas.', '30 min', 1, true, '2026-07-14'),
+    (32, 'Programar el menú principal', 'Programar el menú con opciones usando condicionales y bucle.', '45 min', 2, false, '2026-07-15'),
+    (32, 'Programar registro de notas', 'Programar el ingreso de notas a una lista y el cálculo del promedio.', '45 min', 3, false, '2026-07-15'),
+    (32, 'Probar y corregir errores', 'Probar el programa con 3 casos y corregir lo que falle.', '30 min', 4, false, '2026-07-16'),
+    (33, 'Elegir tema y buscar 3 fuentes', 'Definir el tema del ensayo y guardar 3 fuentes confiables.', '30 min', 1, false, '2026-07-16'),
+    (33, 'Redactar introducción y tesis', 'Escribir la introducción con la tesis clara en el último párrafo.', '35 min', 2, false, '2026-07-17'),
+    (33, 'Redactar el cuerpo del ensayo', 'Desarrollar los 3 argumentos, uno por párrafo, con sus citas.', '45 min', 3, false, '2026-07-17'),
+    (33, 'Revisar ortografía y citas APA', 'Pasar corrector, revisar tildes y dar formato APA a las citas.', '25 min', 4, false, '2026-07-18'),
+    (34, 'Resolver la práctica', 'Resolver los 8 ejercicios de la práctica calificada.', '45 min', 1, TRUE, '2026-07-09'),
+    (34, 'Verificar con solucionario', 'Comparar con el solucionario y corregir errores.', '20 min', 2, TRUE, '2026-07-10'),
+    (35, 'Ordenar fichas de resumen', 'Ordenar las fichas por subtema según el índice de la monografía.', '25 min', 1, true, '2026-07-13'),
+    (35, 'Redactar marco teórico', 'Redactar el marco teórico usando las fichas ya ordenadas.', '45 min', 2, true, '2026-07-13'),
+    (35, 'Redactar conclusiones', 'Escribir 3 conclusiones que respondan a los objetivos.', '30 min', 3, true, '2026-07-14'),
+    (35, 'Armar diapositivas de sustentación', 'Preparar 8 diapositivas simples para la sustentación.', '35 min', 4, true, '2026-07-14'),
+    (36, 'Tabular resultados de la encuesta', 'Pasar las 30 respuestas de la encuesta a la hoja de cálculo.', '35 min', 1, false, '2026-07-15'),
+    (36, 'Calcular media, mediana y moda', 'Calcular las medidas de tendencia central por pregunta.', '30 min', 2, false, '2026-07-15'),
+    (36, 'Hacer gráficos en Excel', 'Crear los gráficos de barras y circular de los resultados.', '30 min', 3, false, '2026-07-16'),
+    (36, 'Redactar interpretación', 'Escribir la interpretación de cada gráfico en el informe.', '25 min', 4, false, '2026-07-16'),
+    (37, 'Repasar funciones lineales', 'Repasar pendiente e intercepto con los ejercicios de clase.', '25 min', 1, true, '2026-07-14'),
+    (37, 'Graficar funciones cuadráticas', 'Graficar 5 parábolas hallando vértice y raíces.', '35 min', 2, false, '2026-07-16'),
+    (37, 'Resolver guía de repaso completa', 'Resolver la guía de repaso que dejó el profesor para el final.', '45 min', 3, false, '2026-07-17'),
+    (38, 'Repasar elasticidades', 'Repasar elasticidad precio de la demanda con los ejemplos de clase.', '30 min', 1, true, '2026-07-13'),
+    (38, 'Resolver casos prácticos', 'Resolver los 5 casos de equilibrio de mercado de la guía.', '40 min', 2, true, '2026-07-13'),
+    (38, 'Hacer resumen de fórmulas', 'Armar una hoja resumen con todas las fórmulas del curso.', '20 min', 3, true, '2026-07-13'),
+    (39, 'Leer capítulo de motivación', 'Leer el capítulo asignado y subrayar las ideas principales.', '35 min', 1, true, '2026-07-14'),
+    (39, 'Hacer mapa conceptual', 'Convertir lo subrayado en un mapa conceptual de una página.', '30 min', 2, true, '2026-07-14'),
+    (39, 'Preparar guion de exposición', 'Escribir el guion de 5 minutos y ensayarlo una vez en voz alta.', '30 min', 3, false, '2026-07-15'),
+    (40, 'Hacer el esquema del artículo', 'Definir postura y ordenar las 3 ideas de apoyo en un esquema.', '25 min', 1, true, '2026-07-14'),
+    (40, 'Redactar el borrador completo', 'Escribir el borrador del artículo siguiendo el esquema.', '45 min', 2, false, '2026-07-15'),
+    (40, 'Corregir con la rúbrica', 'Revisar el borrador punto por punto con la rúbrica del curso.', '30 min', 3, false, '2026-07-16'),
+    (41, 'Repasar límites y continuidad', 'Releer los apuntes de límites y resolver los 5 ejemplos de clase.', '30 min', 1, true, '2026-07-13'),
+    (41, 'Resolver derivadas de la guía', 'Hacer los ejercicios 1 al 10 de la guía de derivadas del profesor.', '45 min', 2, true, '2026-07-13'),
+    (41, 'Practicar integrales básicas', 'Resolver las integrales inmediatas de la práctica 6.', '40 min', 3, true, '2026-07-14'),
+    (41, 'Simulacro de examen final', 'Resolver el examen del ciclo pasado con cronómetro, sin apuntes.', '45 min', 4, true, '2026-07-14'),
+    (42, 'Repasar operaciones con matrices', 'Repasar suma, producto y transpuesta con los ejemplos del cuaderno.', '30 min', 1, false, '2026-07-15'),
+    (42, 'Resolver sistemas de ecuaciones', 'Resolver 6 sistemas por Gauss de la guía de repaso.', '40 min', 2, false, '2026-07-15'),
+    (42, 'Practicar determinantes', 'Calcular determinantes 2x2 y 3x3 de la práctica calificada anterior.', '35 min', 3, false, '2026-07-16'),
+    (43, 'Repasar tabla periódica y enlaces', 'Repasar grupos, periodos y tipos de enlace con el resumen de clase.', '30 min', 1, false, '2026-07-16'),
+    (43, 'Balancear ecuaciones de la guía', 'Balancear las 12 ecuaciones de la guía por tanteo.', '40 min', 2, false, '2026-07-17'),
+    (43, 'Resolver problemas de moles', 'Hacer los problemas de estequiometría 1 al 8 de la separata.', '45 min', 3, false, '2026-07-17'),
+    (44, 'Resolver la práctica', 'Resolver los 8 ejercicios de la práctica calificada.', '45 min', 1, TRUE, '2026-07-09'),
+    (44, 'Verificar con solucionario', 'Comparar con el solucionario y corregir errores.', '20 min', 2, TRUE, '2026-07-10'),
+    (45, 'Repasar MRU y MRUV', 'Releer fórmulas y resolver los 4 ejemplos del cuaderno.', '30 min', 1, true, '2026-07-13'),
+    (45, 'Resolver problemas de caída libre', 'Hacer los problemas 1 al 6 de la guía de caída libre.', '40 min', 2, true, '2026-07-13'),
+    (45, 'Simulacro con examen pasado', 'Resolver el examen final del ciclo anterior midiendo el tiempo.', '45 min', 3, true, '2026-07-14'),
+    (46, 'Diseñar el diagrama de flujo', 'Dibujar el flujo del programa: menú, registro y promedio de notas.', '30 min', 1, true, '2026-07-14'),
+    (46, 'Programar el menú principal', 'Programar el menú con opciones usando condicionales y bucle.', '45 min', 2, false, '2026-07-15'),
+    (46, 'Programar registro de notas', 'Programar el ingreso de notas a una lista y el cálculo del promedio.', '45 min', 3, false, '2026-07-15'),
+    (46, 'Probar y corregir errores', 'Probar el programa con 3 casos y corregir lo que falle.', '30 min', 4, false, '2026-07-16'),
+    (47, 'Elegir tema y buscar 3 fuentes', 'Definir el tema del ensayo y guardar 3 fuentes confiables.', '30 min', 1, false, '2026-07-16'),
+    (47, 'Redactar introducción y tesis', 'Escribir la introducción con la tesis clara en el último párrafo.', '35 min', 2, false, '2026-07-17'),
+    (47, 'Redactar el cuerpo del ensayo', 'Desarrollar los 3 argumentos, uno por párrafo, con sus citas.', '45 min', 3, false, '2026-07-17'),
+    (47, 'Revisar ortografía y citas APA', 'Pasar corrector, revisar tildes y dar formato APA a las citas.', '25 min', 4, false, '2026-07-18'),
+    (48, 'Ordenar fichas de resumen', 'Ordenar las fichas por subtema según el índice de la monografía.', '25 min', 1, true, '2026-07-13'),
+    (48, 'Redactar marco teórico', 'Redactar el marco teórico usando las fichas ya ordenadas.', '45 min', 2, true, '2026-07-13'),
+    (48, 'Redactar conclusiones', 'Escribir 3 conclusiones que respondan a los objetivos.', '30 min', 3, true, '2026-07-14'),
+    (48, 'Armar diapositivas de sustentación', 'Preparar 8 diapositivas simples para la sustentación.', '35 min', 4, true, '2026-07-14'),
+    (49, 'Tabular resultados de la encuesta', 'Pasar las 30 respuestas de la encuesta a la hoja de cálculo.', '35 min', 1, false, '2026-07-15'),
+    (49, 'Calcular media, mediana y moda', 'Calcular las medidas de tendencia central por pregunta.', '30 min', 2, false, '2026-07-15'),
+    (49, 'Hacer gráficos en Excel', 'Crear los gráficos de barras y circular de los resultados.', '30 min', 3, false, '2026-07-16'),
+    (49, 'Redactar interpretación', 'Escribir la interpretación de cada gráfico en el informe.', '25 min', 4, false, '2026-07-16'),
+    (50, 'Repasar funciones lineales', 'Repasar pendiente e intercepto con los ejercicios de clase.', '25 min', 1, true, '2026-07-14'),
+    (50, 'Graficar funciones cuadráticas', 'Graficar 5 parábolas hallando vértice y raíces.', '35 min', 2, false, '2026-07-16'),
+    (50, 'Resolver guía de repaso completa', 'Resolver la guía de repaso que dejó el profesor para el final.', '45 min', 3, false, '2026-07-17');
 
-WITH u AS (SELECT id FROM usuarios WHERE username = 'usuario2'),
-p AS (
-  INSERT INTO proyectos (usuario_id, curso, descripcion, fecha_entrega, creado_en)
-  SELECT id, 'Emprendimiento', 'Pitch Deck MVP', CURRENT_DATE + 3, now() - interval '6 hours' FROM u
-  RETURNING id
-)
-INSERT INTO microtareas (proyecto_id, titulo, descripcion, tiempo, orden, completada)
-SELECT p.id, x.* FROM p, (VALUES
-  ('Redactar propuesta de valor', 'Escribir en una oración el problema y cómo el producto lo resuelve.', '15 min', 1, TRUE),
-  ('Armar 5 diapositivas clave', 'Problema, solución, mercado, modelo de negocio y equipo.', '35 min', 2, FALSE)
-) AS x(titulo, descripcion, tiempo, orden, completada);
+-- Ajustar las secuencias para que la app pueda seguir insertando sin chocar
+SELECT setval('usuarios_id_seq', (SELECT max(id) FROM usuarios));
+SELECT setval('proyectos_id_seq', (SELECT max(id) FROM proyectos));
 
--- ---------- usuario3 ----------
-WITH u AS (SELECT id FROM usuarios WHERE username = 'usuario3'),
-p AS (
-  INSERT INTO proyectos (usuario_id, curso, descripcion, fecha_entrega, creado_en)
-  SELECT id, 'Historia Crítica', 'Ensayo Comparativo', CURRENT_DATE + 4, now() - interval '2 days' FROM u
-  RETURNING id
-)
-INSERT INTO microtareas (proyecto_id, titulo, descripcion, tiempo, orden, completada)
-SELECT p.id, x.* FROM p, (VALUES
-  ('Leer las 2 fuentes asignadas', 'Lectura activa subrayando las tesis principales de cada autor.', '30 min', 1, TRUE),
-  ('Esquema del ensayo', 'Definir introducción, 3 argumentos comparativos y conclusión.', '20 min', 2, FALSE),
-  ('Redactar primer borrador', 'Escribir sin editar, siguiendo el esquema, mínimo 600 palabras.', '40 min', 3, FALSE)
-) AS x(titulo, descripcion, tiempo, orden, completada);
-
--- ---------- usuario4 ----------
-WITH u AS (SELECT id FROM usuarios WHERE username = 'usuario4'),
-p AS (
-  INSERT INTO proyectos (usuario_id, curso, descripcion, fecha_entrega, creado_en)
-  SELECT id, 'Cálculo Avanzado', 'Examen Parcial 2', CURRENT_DATE - 3, now() - interval '5 days' FROM u
-  RETURNING id
-)
-INSERT INTO microtareas (proyecto_id, titulo, descripcion, tiempo, orden, completada)
-SELECT p.id, x.* FROM p, (VALUES
-  ('Repasar series de Taylor', 'Rehacer los 5 ejemplos vistos en clase sin mirar la solución.', '30 min', 1, TRUE),
-  ('Simulacro cronometrado', 'Resolver el parcial del ciclo pasado en 90 minutos reales.', '45 min', 2, TRUE)
-) AS x(titulo, descripcion, tiempo, orden, completada);
-
-WITH u AS (SELECT id FROM usuarios WHERE username = 'usuario4'),
-p AS (
-  INSERT INTO proyectos (usuario_id, curso, descripcion, fecha_entrega, creado_en)
-  SELECT id, 'Algoritmos y Estructuras', 'Lab de Grafos', CURRENT_DATE + 2, now() - interval '1 day' FROM u
-  RETURNING id
-)
-INSERT INTO microtareas (proyecto_id, titulo, descripcion, tiempo, orden, completada)
-SELECT p.id, x.* FROM p, (VALUES
-  ('Implementar BFS', 'Programar el recorrido en anchura sobre la lista de adyacencia dada.', '30 min', 1, FALSE),
-  ('Probar con el grafo de ejemplo', 'Ejecutar con el caso del enunciado y validar la salida esperada.', '15 min', 2, FALSE)
-) AS x(titulo, descripcion, tiempo, orden, completada);
-
--- ---------- usuario5 ----------
-WITH u AS (SELECT id FROM usuarios WHERE username = 'usuario5'),
-p AS (
-  INSERT INTO proyectos (usuario_id, curso, descripcion, fecha_entrega, creado_en)
-  SELECT id, 'Emprendimiento', 'Lienzo 6x6', CURRENT_DATE + 6, now() - interval '12 hours' FROM u
-  RETURNING id
-)
-INSERT INTO microtareas (proyecto_id, titulo, descripcion, tiempo, orden, completada)
-SELECT p.id, x.* FROM p, (VALUES
-  ('Definir propuesta de valor', 'Identificar el problema principal del cliente y cómo el producto lo resuelve.', '20 min', 1, TRUE),
-  ('Estructurar segmentos clave', 'Crear el arquetipo del cliente ideal: edad, demografía e intereses.', '25 min', 2, FALSE)
-) AS x(titulo, descripcion, tiempo, orden, completada);
+COMMIT;
