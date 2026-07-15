@@ -13,7 +13,6 @@ import {
   Mic,
   Square,
   XCircle,
-  ShieldCheck,
 } from "lucide-react";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -38,7 +37,6 @@ export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }
   const [paso, setPaso] = useState(0);
   const [curso, setCurso] = useState("");
   const [fecha, setFecha] = useState("");
-  const [modoExigente, setModoExigente] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [shake, setShake] = useState(false);
   const [segundos, setSegundos] = useState(0);
@@ -71,7 +69,6 @@ export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }
     if (!captura) return;
     setCurso("");
     setFecha("");
-    setModoExigente(false);
     setResultado(null);
     setErrorMsg("");
     setSegundos(0);
@@ -169,7 +166,6 @@ export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }
         descripcion: resultado?.descripcion,
         microtareas: resultado?.microtareas,
         resumen: resultado?.resumen_clase,
-        modoExigente,
       });
       const espera = Math.max(0, 2500 - (Date.now() - inicio));
       programar(() => {
@@ -335,37 +331,6 @@ export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }
                 className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-colors"
               />
             </div>
-
-            <button
-              type="button"
-              onClick={() => setModoExigente((v) => !v)}
-              className={`w-full flex items-center gap-3 p-3.5 rounded-xl border transition-colors text-left ${
-                modoExigente
-                  ? "bg-amber-50 border-amber-200"
-                  : "bg-slate-50 border-slate-200"
-              }`}
-            >
-              <div
-                className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  modoExigente ? "bg-amber-500 text-white" : "bg-white text-slate-400"
-                }`}
-              >
-                <ShieldCheck className="w-4.5 h-4.5" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-slate-700">Modo exigente</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Cada microtarea pedirá evidencia verificada por IA antes de poder completarse.
-                </p>
-              </div>
-              <div
-                className={`w-10 h-6 rounded-full flex-shrink-0 flex items-center px-0.5 transition-colors ${
-                  modoExigente ? "bg-amber-500 justify-end" : "bg-slate-300 justify-start"
-                }`}
-              >
-                <div className="w-5 h-5 bg-white rounded-full shadow-sm" />
-              </div>
-            </button>
           </div>
 
           <button

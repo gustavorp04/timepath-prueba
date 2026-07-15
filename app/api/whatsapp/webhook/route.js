@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { sql } from "@/lib/db";
 import { analizarArchivo } from "@/lib/ai";
-import { guardarProyecto } from "@/lib/proyectos";
+import { guardarProyecto, hoyLocal } from "@/lib/proyectos";
 import { enviarMensaje, enviarBotones, descargarMedia } from "@/lib/whatsapp";
 
 export const maxDuration = 60;
@@ -73,58 +73,37 @@ function parsearFecha(texto) {
   return null;
 }
 
-function resumenMicrotareas(micros) {
-  return micros.map((m, i) => `${i + 1}. ${m.titulo} (${m.tiempo})`).join("\n");
-}
-
-// Guarda el proyecto y confirma por WhatsApp
+// Guarda el proyecto (repartido en dosis diarias) y confirma por WhatsApp
 async function finalizar(usuario, captura, from) {
-  await guardarProyecto(usuario.id, {
+  const { micros } = await guardarProyecto(usuario.id, {
     curso: captura.curso,
     fecha: captura.fecha,
     descripcion: captura.descripcion,
     microtareas: captura.microtareas,
     resumen: captura.resumen,
-    modoExigente: !!captura.modoExigente,
   });
   await sql`UPDATE usuarios SET captura_pendiente = NULL WHERE id = ${usuario.id}`;
 
-  let msg = `✅ *${captura.descripcion}* (${captura.curso}) para el ${captura.fecha}.\n\nLa dividí en:\n${resumenMicrotareas(
-    captura.microtareas
-  )}\n\nÁbrela en la app para ver el detalle y marcar tu avance. 💪`;
-  if (captura.modoExigente) {
-    msg += `\n\n🛡️ *Modo exigente activado*: cada microtarea te pedirá evidencia verificada por IA antes de poder completarse.`;
-  }
+  const hoy = hoyLocal();
+  const deHoy = micros.filter((m) => m.fecha_asignada === hoy);
+  const listaHoy = deHoy.map((m) => `• ${m.titulo} (${m.tiempo})`).join("\n");
+  const primerDia = micros[0]?.fecha_asignada;
+
+  let msg = `✅ *${captura.descripcion}* (${captura.curso}) para el ${captura.fecha}.\n\nLa dividí en ${micros.length} pasos pequeños y los repartí en tu agenda para que no te satures.`;
+  msg += deHoy.length
+    ? `\n\n📌 Hoy solo te toca:\n${listaHoy}`
+    : `\n\n📌 Hoy ya no te toca nada de esto: empiezas el ${primerDia}. 😌`;
+  msg += `\n\nAbre la app para marcar tu avance. 💪`;
   if (captura.resumen) {
     msg += `\n\n📘 Además te dejé un resumen de clase de este tema en la app.`;
   }
   await enviarMensaje(from, msg);
 }
 
-const BOTONES_MODO_EXIGENTE = [
-  { id: "modo_si", title: "Sí" },
-  { id: "modo_no", title: "No" },
-  { id: "modo_cancelar", title: "Cancelar" },
-];
-
-// Pregunta si activar modo exigente antes de guardar (una vez ya hay curso y fecha)
-async function preguntarModoExigente(usuario, captura, from) {
-  await sql`UPDATE usuarios SET captura_pendiente = ${JSON.stringify({
-    ...captura,
-    preguntandoModo: true,
-  })} WHERE id = ${usuario.id}`;
-
-  await enviarBotones(
-    from,
-    `Detecté todo: *${captura.descripcion}* (${captura.curso}) para el ${captura.fecha}.\n\n¿Activar *modo exigente*? Cada microtarea pedirá evidencia (foto/texto) verificada por IA antes de poder completarse.`,
-    BOTONES_MODO_EXIGENTE
-  );
-}
-
-// Si ya hay curso y fecha, pregunta el modo exigente; si no, pide lo que falte.
+// Si ya hay curso y fecha, guarda directo; si no, pide lo que falte.
 async function avanzar(usuario, captura, from) {
   if (captura.curso && captura.fecha) {
-    await preguntarModoExigente(usuario, captura, from);
+    await finalizar(usuario, captura, from);
     return;
   }
   await sql`UPDATE usuarios SET captura_pendiente = ${JSON.stringify(captura)} WHERE id = ${usuario.id}`;
@@ -176,35 +155,6 @@ async function procesar(body) {
   }
 
   const pendiente = usuario.captura_pendiente;
-
-  // ---- CASO 2a: está esperando la respuesta de "modo exigente" (botón o texto) ----
-  if (pendiente?.preguntandoModo) {
-    const idBoton = message.type === "interactive" ? message.interactive?.button_reply?.id : null;
-    const texto = (message.text?.body || "").trim().toLowerCase();
-
-    const esSi = idBoton === "modo_si" || texto === "si" || texto === "sí";
-    const esNo = idBoton === "modo_no" || texto === "no";
-    const esCancelar = idBoton === "modo_cancelar" || texto === "cancelar";
-
-    if (esSi || esNo) {
-      const captura = { ...pendiente };
-      delete captura.preguntandoModo;
-      captura.modoExigente = esSi;
-      await finalizar(usuario, captura, from);
-      return;
-    }
-    if (esCancelar) {
-      await sql`UPDATE usuarios SET captura_pendiente = NULL WHERE id = ${usuario.id}`;
-      await enviarMensaje(from, "Listo, cancelé esa captura. Mándame otra foto, PDF o nota de voz cuando quieras. 📚");
-      return;
-    }
-    await enviarBotones(
-      from,
-      "No te entendí 😅. ¿Activar *modo exigente* para esta tarea?",
-      BOTONES_MODO_EXIGENTE
-    );
-    return;
-  }
 
   // ---- CASO 2: mandó un archivo (imagen / documento / audio) ----
   const media =
@@ -291,13 +241,32 @@ const BOTONES_MENU = [
   { id: "menu_cerrar", title: "Cerrar sesión" },
 ];
 
-// Lista los proyectos recientes del usuario con sus microtareas (✅/⬜)
+// Muestra solo la dosis de HOY (lo agendado para hoy + lo atrasado pendiente)
 async function verTareas(usuario, from) {
-  const proyectos = await sql`
-    SELECT id, curso, descripcion, to_char(fecha_entrega, 'YYYY-MM-DD') AS fecha_entrega
-    FROM proyectos WHERE usuario_id = ${usuario.id} ORDER BY id DESC LIMIT 5
+  const hoy = hoyLocal();
+
+  const micros = await sql`
+    SELECT m.titulo, m.tiempo, m.completada, p.curso
+    FROM microtareas m
+    JOIN proyectos p ON p.id = m.proyecto_id
+    WHERE p.usuario_id = ${usuario.id}
+      AND (m.fecha_asignada IS NULL
+           OR m.fecha_asignada = ${hoy}
+           OR (m.fecha_asignada < ${hoy} AND m.completada = FALSE))
+    ORDER BY m.proyecto_id, m.orden, m.id
   `;
-  if (proyectos.length === 0) {
+
+  const futuras = await sql`
+    SELECT count(*)::int AS n
+    FROM microtareas m
+    JOIN proyectos p ON p.id = m.proyecto_id
+    WHERE p.usuario_id = ${usuario.id}
+      AND m.completada = FALSE
+      AND m.fecha_asignada > ${hoy}
+  `;
+  const enAgenda = futuras[0]?.n || 0;
+
+  if (micros.length === 0 && enAgenda === 0) {
     await enviarMensaje(
       from,
       "Todavía no tienes tareas guardadas. Mándame una foto, PDF o nota de voz para crear la primera. 📚"
@@ -305,20 +274,19 @@ async function verTareas(usuario, from) {
     return;
   }
 
-  const micros = await sql`
-    SELECT m.proyecto_id, m.titulo, m.completada
-    FROM microtareas m
-    JOIN proyectos p ON p.id = m.proyecto_id
-    WHERE p.usuario_id = ${usuario.id}
-    ORDER BY m.orden, m.id
-  `;
+  let msg;
+  if (micros.length === 0) {
+    msg = `🎉 Hoy no tienes nada pendiente. Descansa sin culpa: ya hay ${enAgenda} pasos agendados para los próximos días.`;
+  } else {
+    const lista = micros
+      .map((m) => `${m.completada ? "✅" : "⬜"} ${m.titulo} (${m.tiempo}) — _${m.curso}_`)
+      .join("\n");
+    msg = `📋 Tu dosis de HOY:\n\n${lista}`;
+    if (enAgenda > 0) {
+      msg += `\n\n😌 El resto (${enAgenda} pasos) ya está repartido en tu agenda. Hoy no pienses en eso.`;
+    }
+  }
 
-  const bloques = proyectos.map((p) => {
-    const propias = micros.filter((m) => m.proyecto_id === p.id);
-    const lista = propias.map((m) => `${m.completada ? "✅" : "⬜"} ${m.titulo}`).join("\n");
-    return `*${p.descripcion}* (${p.curso})${p.fecha_entrega ? ` — entrega ${p.fecha_entrega}` : ""}\n${lista}`;
-  });
-
-  await enviarMensaje(from, `📋 Tus últimas tareas:\n\n${bloques.join("\n\n")}`);
+  await enviarMensaje(from, msg);
   await enviarBotones(from, "¿Qué quieres hacer ahora?", BOTONES_MENU);
 }

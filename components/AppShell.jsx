@@ -8,9 +8,21 @@ import ScreenCaptura from "@/components/ScreenCaptura";
 import ScreenProgreso from "@/components/ScreenProgreso";
 import TaskModal from "@/components/TaskModal";
 import IAModal from "@/components/IAModal";
-import ModalEvidencia from "@/components/ModalEvidencia";
 
 const CONFETTI_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+
+// Fecha de hoy (YYYY-MM-DD) en la zona horaria del dispositivo
+function hoyISO() {
+  return new Date().toLocaleDateString("en-CA");
+}
+
+// Una microtarea pertenece a "Hoy" si está agendada para hoy, o si quedó
+// pendiente de un día anterior (rueda hacia adelante hasta completarse)
+function esDeHoy(m, hoy) {
+  if (!m.fecha_asignada) return true; // dato viejo sin fecha: mejor mostrarlo
+  if (m.fecha_asignada === hoy) return true;
+  return m.fecha_asignada < hoy && !m.completada;
+}
 
 export default function AppShell({ username }) {
   const [pantalla, setPantalla] = useState("hoy");
@@ -20,25 +32,32 @@ export default function AppShell({ username }) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [rachaBump, setRachaBump] = useState(false);
   const [taskModalData, setTaskModalData] = useState(null);
-  const [evidenciaData, setEvidenciaData] = useState(null); // { proyecto, micro }
   const [captura, setCaptura] = useState(null); // { tipo, archivo }
   const [confetti, setConfetti] = useState([]);
+  const [idsHoy, setIdsHoy] = useState(new Set());
   const celebrandoRef = useRef(false);
 
-  const cargarDatos = useCallback(async (expandirPrimero = false) => {
+  const cargarDatos = useCallback(async () => {
     const res = await fetch("/api/tareas");
     if (res.status === 401) {
       window.location.href = "/login";
       return;
     }
     const data = await res.json();
+    // Se decide UNA vez por carga qué microtareas son de hoy, para que al
+    // completar una no desaparezca de la pantalla en ese instante
+    const hoy = hoyISO();
+    const ids = new Set();
+    data.proyectos.forEach((p) =>
+      p.microtareas.forEach((m) => {
+        if (esDeHoy(m, hoy)) ids.add(m.id);
+      })
+    );
+    setIdsHoy(ids);
     setProyectos((prev) =>
-      data.proyectos.map((p, i) => {
+      data.proyectos.map((p) => {
         const anterior = prev.find((x) => x.id === p.id);
-        return {
-          ...p,
-          expandido: expandirPrimero ? i === 0 : anterior ? anterior.expandido : i === 0,
-        };
+        return { ...p, expandido: anterior ? anterior.expandido : true };
       })
     );
     setRacha(data.racha);
@@ -61,10 +80,18 @@ export default function AppShell({ username }) {
     setTimeout(() => setConfetti([]), 4500);
   }
 
-  // Detectar "día conquistado": todas las microtareas completadas
-  const totalMicro = proyectos.reduce((n, p) => n + p.microtareas.length, 0);
+  // "Hoy" solo muestra la dosis diaria; el resto vive en la Agenda
+  const proyectosHoy = proyectos
+    .map((p) => ({
+      ...p,
+      microtareas: p.microtareas.filter((m) => idsHoy.has(m.id)),
+    }))
+    .filter((p) => p.microtareas.length > 0);
+
+  // Detectar "día conquistado": todas las microtareas DE HOY completadas
+  const totalMicro = proyectosHoy.reduce((n, p) => n + p.microtareas.length, 0);
   const todasCompletadas =
-    totalMicro > 0 && proyectos.every((p) => p.microtareas.every((m) => m.completada));
+    totalMicro > 0 && proyectosHoy.every((p) => p.microtareas.every((m) => m.completada));
 
   useEffect(() => {
     if (!cargado) return;
@@ -123,44 +150,6 @@ export default function AppShell({ username }) {
     } catch {}
   }
 
-  function actualizarMicro(microId, cambios) {
-    setProyectos((prev) =>
-      prev.map((p) => ({
-        ...p,
-        microtareas: p.microtareas.map((m) =>
-          m.id === microId ? { ...m, ...cambios } : m
-        ),
-      }))
-    );
-  }
-
-  function abrirEvidencia(proyecto, micro) {
-    setEvidenciaData({ proyecto, micro });
-  }
-
-  async function enviarEvidencia({ archivo, texto }) {
-    const microId = evidenciaData.micro.id;
-    const form = new FormData();
-    if (archivo) form.append("archivo", archivo);
-    if (texto) form.append("texto", texto);
-
-    const res = await fetch(`/api/microtareas/${microId}/verificar`, {
-      method: "POST",
-      body: form,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "No se pudo verificar la evidencia");
-
-    actualizarMicro(microId, {
-      completada: data.microtarea.completada,
-      verificada: data.microtarea.verificada,
-      intentos: data.microtarea.intentos,
-      motivo_rechazo: data.microtarea.motivo_rechazo,
-    });
-
-    return data;
-  }
-
   async function confirmarCaptura(datos) {
     // datos = { curso, fecha, descripcion, microtareas, resumen } (todo lo de Gemini)
     const res = await fetch("/api/tareas", {
@@ -173,7 +162,7 @@ export default function AppShell({ username }) {
 
   async function terminarCaptura() {
     setCaptura(null);
-    await cargarDatos(true);
+    await cargarDatos();
     setPantalla("hoy");
   }
 
@@ -206,7 +195,7 @@ export default function AppShell({ username }) {
         <div className="flex-1 relative overflow-hidden w-full h-full">
           {pantalla === "hoy" && (
             <ScreenHoy
-              proyectos={proyectos}
+              proyectos={proyectosHoy}
               cargado={cargado}
               showSuccess={showSuccess}
               racha={racha}
@@ -215,7 +204,6 @@ export default function AppShell({ username }) {
               onToggleMicro={alternarMicrotarea}
               onOpenTask={setTaskModalData}
               onLogout={cerrarSesion}
-              onAbrirEvidencia={abrirEvidencia}
             />
           )}
           {pantalla === "calendario" && <ScreenCalendario proyectos={proyectos} />}
@@ -230,11 +218,6 @@ export default function AppShell({ username }) {
         </div>
 
         <TaskModal data={taskModalData} onClose={() => setTaskModalData(null)} />
-        <ModalEvidencia
-          data={evidenciaData}
-          onEnviar={enviarEvidencia}
-          onClose={() => setEvidenciaData(null)}
-        />
         <IAModal
           captura={captura}
           onConfirmar={confirmarCaptura}

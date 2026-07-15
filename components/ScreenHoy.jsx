@@ -12,7 +12,6 @@ import {
   Info,
   LogOut,
   BookOpen,
-  ShieldCheck,
 } from "lucide-react";
 
 export default function ScreenHoy({
@@ -25,7 +24,6 @@ export default function ScreenHoy({
   onToggleMicro,
   onOpenTask,
   onLogout,
-  onAbrirEvidencia,
 }) {
   const fecha = new Date().toLocaleDateString("es-ES", {
     weekday: "long",
@@ -54,7 +52,7 @@ export default function ScreenHoy({
           Concéntrate hoy.
         </h1>
         <p className="text-slate-500 mt-2 text-sm leading-tight font-medium">
-          Aquí tienes tus proyectos asignados por la IA para hoy.
+          Solo tu dosis de hoy. El resto ya quedó repartido en la Agenda.
         </p>
       </header>
 
@@ -179,13 +177,7 @@ export default function ScreenHoy({
                       >
                         <div
                           className="flex items-center gap-3 cursor-pointer"
-                          onClick={() =>
-                            micro.completada
-                              ? onToggleMicro(proyecto.id, micro.id)
-                              : micro.modo_estricto
-                                ? onAbrirEvidencia(proyecto, micro)
-                                : onToggleMicro(proyecto.id, micro.id)
-                          }
+                          onClick={() => onToggleMicro(proyecto.id, micro.id)}
                         >
                           <div className="relative flex items-center justify-center w-6 h-6 flex-shrink-0">
                             <div
@@ -215,11 +207,6 @@ export default function ScreenHoy({
                               <span className="text-[10px] font-semibold">
                                 {micro.tiempo}
                               </span>
-                              {micro.modo_estricto && !micro.completada && (
-                                <span className="flex items-center gap-1 text-[10px] font-bold text-amber-500 ml-1">
-                                  <ShieldCheck className="w-3 h-3" /> Exige prueba
-                                </span>
-                              )}
                             </div>
                           </div>
                           <button
@@ -236,11 +223,6 @@ export default function ScreenHoy({
                             <Info className="w-4 h-4" />
                           </button>
                         </div>
-                        {micro.motivo_rechazo && !micro.completada && (
-                          <p className="text-[11px] text-red-500 font-medium mt-2 ml-9 leading-snug">
-                            La IA rechazó tu último intento: {micro.motivo_rechazo}
-                          </p>
-                        )}
                       </div>
                     ))}
                   </div>

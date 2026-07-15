@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, CalendarCheck } from "lucide-react";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -13,28 +13,57 @@ function formatearFecha(dateStr) {
   };
 }
 
-// Días con punto rojo fijos del prototipo original
-const DIAS_ESTATICOS = [10, 14, 18];
+function hoyISO() {
+  return new Date().toLocaleDateString("en-CA");
+}
+
+function sumarDias(fechaISO, n) {
+  const d = new Date(fechaISO + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return d.toLocaleDateString("en-CA");
+}
+
+function etiquetaDia(iso, hoy) {
+  if (iso === hoy) return "Hoy";
+  if (iso === sumarDias(hoy, 1)) return "Mañana";
+  return new Date(iso + "T12:00:00").toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  });
+}
 
 export default function ScreenCalendario({ proyectos }) {
+  const hoy = hoyISO();
   const entregas = proyectos.filter((p) => p.fecha_entrega);
-  const diasConEntrega = new Set([
-    ...DIAS_ESTATICOS,
-    ...entregas.map((p) => formatearFecha(p.fecha_entrega).day),
-  ]);
+  const diasConEntrega = new Set(entregas.map((p) => formatearFecha(p.fecha_entrega).day));
+  const diaHoy = new Date().getDate();
+
+  // Plan día por día: microtareas pendientes agrupadas por fecha asignada
+  // (lo atrasado se muestra como parte de hoy)
+  const porDia = new Map();
+  proyectos.forEach((p) =>
+    p.microtareas.forEach((m) => {
+      if (m.completada || !m.fecha_asignada) return;
+      const dia = m.fecha_asignada < hoy ? hoy : m.fecha_asignada;
+      if (!porDia.has(dia)) porDia.set(dia, []);
+      porDia.get(dia).push({ ...m, curso: p.curso });
+    })
+  );
+  const diasOrdenados = [...porDia.keys()].sort();
 
   const dias = [
     { n: 29, mesAnterior: true },
     { n: 30, mesAnterior: true },
-    ...Array.from({ length: 26 }, (_, i) => ({ n: i + 1, mesAnterior: false })),
+    ...Array.from({ length: 31 }, (_, i) => ({ n: i + 1, mesAnterior: false })),
   ];
 
   return (
     <section className="absolute inset-0 overflow-y-auto no-scrollbar p-6 pb-32 bg-slate-50 screen-enter">
       <header className="mb-6 mt-6">
-        <h1 className="text-2xl font-bold text-slate-800">Calendario Académico</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Agenda</h1>
         <p className="text-slate-500 mt-1 text-sm font-medium">
-          Visualiza las entregas importantes.
+          Todo ya está repartido día por día. Nada de esto es para hoy... salvo lo de hoy.
         </p>
       </header>
 
@@ -68,13 +97,13 @@ export default function ScreenCalendario({ proyectos }) {
                 </div>
               );
             }
-            if (dia.n === 9) {
+            if (dia.n === diaHoy) {
               return (
                 <div
                   key={i}
                   className="py-1.5 bg-blue-600 text-white rounded-xl font-bold shadow-md shadow-blue-200"
                 >
-                  9
+                  {dia.n}
                 </div>
               );
             }
@@ -96,28 +125,88 @@ export default function ScreenCalendario({ proyectos }) {
         </div>
       </div>
 
+      <div className="mb-8">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">
+          Tu plan, día por día
+        </h3>
+        {diasOrdenados.length === 0 ? (
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-green-50 text-green-500 flex items-center justify-center flex-shrink-0">
+              <CalendarCheck className="w-6 h-6" />
+            </div>
+            <p className="text-sm text-slate-500 font-medium">
+              No hay nada agendado. Captura una tarea y la IA la repartirá aquí.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {diasOrdenados.map((dia) => {
+              const tareas = porDia.get(dia);
+              const totalMin = tareas.reduce((n, t) => n + (parseInt(t.tiempo, 10) || 20), 0);
+              const esHoy = dia === hoy;
+              return (
+                <div
+                  key={dia}
+                  className={`bg-white p-4 rounded-2xl border shadow-sm fade-in ${
+                    esHoy ? "border-blue-200" : "border-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span
+                      className={`text-xs font-extrabold uppercase tracking-wider ${
+                        esHoy ? "text-blue-600" : "text-slate-500"
+                      }`}
+                    >
+                      {etiquetaDia(dia, hoy)}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {totalMin} min en total
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {tareas.map((t) => (
+                      <div key={t.id} className="flex items-center gap-2.5">
+                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full flex-shrink-0"></div>
+                        <p className="text-[13px] font-bold text-slate-700 leading-tight flex-1">
+                          {t.titulo}
+                        </p>
+                        <span className="text-[10px] font-semibold text-slate-400 flex-shrink-0">
+                          {t.tiempo} · {t.curso}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <div>
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-2">
           Próximas Entregas
         </h3>
         <div className="space-y-3">
+          {entregas.length === 0 && (
+            <p className="text-sm text-slate-400 font-medium px-2">
+              Sin entregas registradas todavía.
+            </p>
+          )}
           {entregas.map((p) => {
             const f = formatearFecha(p.fecha_entrega);
             return (
               <div
                 key={p.id}
-                className="bg-white p-4 rounded-2xl border border-green-200 shadow-sm flex items-center gap-4 cursor-pointer fade-in relative overflow-hidden"
+                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 fade-in"
               >
-                <div className="absolute top-0 right-0 bg-green-500 text-white text-[9px] font-bold uppercase px-3 py-1 rounded-bl-xl shadow-sm">
-                  Nuevo
-                </div>
                 <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex flex-col items-center justify-center font-bold flex-shrink-0">
                   <span className="text-[9px] uppercase leading-none mb-0.5">{f.month}</span>
                   <span className="text-base leading-none">{f.day}</span>
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-1.5 mb-1">
-                    <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded-md text-[9px] font-bold uppercase tracking-wider border border-green-100">
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-[9px] font-bold uppercase tracking-wider">
                       {p.curso}
                     </span>
                   </div>
@@ -131,46 +220,6 @@ export default function ScreenCalendario({ proyectos }) {
               </div>
             );
           })}
-
-          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-blue-200 transition-colors cursor-pointer">
-            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex flex-col items-center justify-center font-bold flex-shrink-0">
-              <span className="text-[9px] uppercase leading-none mb-0.5">Mes</span>
-              <span className="text-base leading-none">10</span>
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-[9px] font-bold uppercase tracking-wider">
-                  Algoritmos
-                </span>
-              </div>
-              <h4 className="font-bold text-slate-800 text-sm leading-tight">
-                Proyecto Backend Final
-              </h4>
-              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                <Clock className="w-3 h-3" /> 23:59 PM
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-blue-200 transition-colors cursor-pointer">
-            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex flex-col items-center justify-center font-bold flex-shrink-0">
-              <span className="text-[9px] uppercase leading-none mb-0.5">Mes</span>
-              <span className="text-base leading-none">14</span>
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-md text-[9px] font-bold uppercase tracking-wider">
-                  Física III
-                </span>
-              </div>
-              <h4 className="font-bold text-slate-800 text-sm leading-tight">
-                Laboratorio de Ondas
-              </h4>
-              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                <Clock className="w-3 h-3" /> 10:00 AM (Presencial)
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     </section>

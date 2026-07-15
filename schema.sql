@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS microtareas (
     tiempo TEXT NOT NULL,            -- ej: "15 min"
     orden INT NOT NULL DEFAULT 1,
     completada BOOLEAN NOT NULL DEFAULT FALSE,
+    fecha_asignada DATE,             -- día en que la IA agendó esta microtarea (dosis diaria)
     modo_estricto BOOLEAN NOT NULL DEFAULT FALSE,  -- pide evidencia verificada por IA antes de completar
     verificada BOOLEAN NOT NULL DEFAULT FALSE,     -- la IA aceptó la última evidencia enviada
     intentos INT NOT NULL DEFAULT 0,               -- cuántas veces se envió evidencia
@@ -58,3 +59,7 @@ ALTER TABLE microtareas ADD COLUMN IF NOT EXISTS modo_estricto BOOLEAN NOT NULL 
 ALTER TABLE microtareas ADD COLUMN IF NOT EXISTS verificada BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE microtareas ADD COLUMN IF NOT EXISTS intentos INT NOT NULL DEFAULT 0;
 ALTER TABLE microtareas ADD COLUMN IF NOT EXISTS motivo_rechazo TEXT;
+ALTER TABLE microtareas ADD COLUMN IF NOT EXISTS fecha_asignada DATE;
+
+-- Reparte las microtareas viejas (creadas antes de la dosis diaria): una por día desde hoy
+UPDATE microtareas SET fecha_asignada = CURRENT_DATE + (orden - 1) WHERE fecha_asignada IS NULL;
