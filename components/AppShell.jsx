@@ -126,17 +126,22 @@ export default function AppShell({ username }) {
   }
 
   async function alternarMicrotarea(proyectoId, microId) {
-    let nuevoValor = false;
+    // El nuevo valor se calcula ANTES de tocar el estado: el actualizador de
+    // setProyectos puede ejecutarse después del fetch y mandaría el valor viejo
+    const micro = proyectos
+      .find((p) => p.id === proyectoId)
+      ?.microtareas.find((m) => m.id === microId);
+    if (!micro) return;
+    const nuevoValor = !micro.completada;
+
     setProyectos((prev) =>
       prev.map((p) => {
         if (p.id !== proyectoId) return p;
         return {
           ...p,
-          microtareas: p.microtareas.map((m) => {
-            if (m.id !== microId) return m;
-            nuevoValor = !m.completada;
-            return { ...m, completada: nuevoValor };
-          }),
+          microtareas: p.microtareas.map((m) =>
+            m.id === microId ? { ...m, completada: nuevoValor } : m
+          ),
         };
       })
     );
