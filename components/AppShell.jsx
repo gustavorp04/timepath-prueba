@@ -37,6 +37,8 @@ export default function AppShell({ username }) {
   const [captura, setCaptura] = useState(null); // { tipo, archivo }
   const [confetti, setConfetti] = useState([]);
   const [idsHoy, setIdsHoy] = useState(new Set());
+  const [adelantadas, setAdelantadas] = useState([]); // ids traídos de días futuros (solo visual, no cambia fechas)
+  const [descansando, setDescansando] = useState(false); // eligió "No, hoy descanso"
   const celebrandoRef = useRef(false);
 
   const cargarDatos = useCallback(async () => {
@@ -82,13 +84,47 @@ export default function AppShell({ username }) {
     setTimeout(() => setConfetti([]), 4500);
   }
 
-  // "Hoy" solo muestra la dosis diaria; el resto vive en la Agenda
+  // "Hoy" solo muestra la dosis diaria (más los adelantos que pidió el usuario)
   const proyectosHoy = proyectos
     .map((p) => ({
       ...p,
-      microtareas: p.microtareas.filter((m) => idsHoy.has(m.id)),
+      microtareas: p.microtareas
+        .filter((m) => idsHoy.has(m.id) || adelantadas.includes(m.id))
+        .map((m) => (adelantadas.includes(m.id) ? { ...m, esAdelanto: true } : m)),
     }))
     .filter((p) => p.microtareas.length > 0);
+
+  // Próxima microtarea adelantable: pendiente, de un día futuro, ordenada por
+  // día asignado y luego por cercanía de la entrega del proyecto
+  function proximaParaAdelantar() {
+    const candidatos = [];
+    proyectos.forEach((p) =>
+      p.microtareas.forEach((m) => {
+        if (m.completada || idsHoy.has(m.id) || adelantadas.includes(m.id)) return;
+        candidatos.push({ micro: m, entrega: p.fecha_entrega || "9999-12-31" });
+      })
+    );
+    candidatos.sort(
+      (a, b) =>
+        (a.micro.fecha_asignada || "").localeCompare(b.micro.fecha_asignada || "") ||
+        a.entrega.localeCompare(b.entrega) ||
+        a.micro.id - b.micro.id
+    );
+    return candidatos[0]?.micro || null;
+  }
+
+  function adelantarUna() {
+    const prox = proximaParaAdelantar();
+    if (!prox) return;
+    setAdelantadas((prev) => [...prev, prox.id]);
+    setProyectos((prev) =>
+      prev.map((p) =>
+        p.microtareas.some((m) => m.id === prox.id) ? { ...p, expandido: true } : p
+      )
+    );
+  }
+
+  const puedeAdelantar = cargado && !descansando && proximaParaAdelantar() !== null;
 
   // Detectar "día conquistado": todas las microtareas DE HOY completadas
   const totalMicro = proyectosHoy.reduce((n, p) => n + p.microtareas.length, 0);
@@ -212,6 +248,9 @@ export default function AppShell({ username }) {
               onOpenTask={setTaskModalData}
               onLogout={cerrarSesion}
               onAbrirAyuda={(proyecto, micro) => setAyudaData({ proyecto, micro })}
+              puedeAdelantar={puedeAdelantar}
+              onAdelantar={adelantarUna}
+              onDescansar={() => setDescansando(true)}
             />
           )}
           {pantalla === "calendario" && <ScreenCalendario proyectos={proyectos} />}
