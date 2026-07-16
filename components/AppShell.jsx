@@ -8,6 +8,7 @@ import ScreenCaptura from "@/components/ScreenCaptura";
 import ScreenProgreso from "@/components/ScreenProgreso";
 import TaskModal from "@/components/TaskModal";
 import IAModal from "@/components/IAModal";
+import ModalAyuda from "@/components/ModalAyuda";
 
 const CONFETTI_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
@@ -32,6 +33,7 @@ export default function AppShell({ username }) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [rachaBump, setRachaBump] = useState(false);
   const [taskModalData, setTaskModalData] = useState(null);
+  const [ayudaData, setAyudaData] = useState(null); // { proyecto, micro }
   const [captura, setCaptura] = useState(null); // { tipo, archivo }
   const [confetti, setConfetti] = useState([]);
   const [idsHoy, setIdsHoy] = useState(new Set());
@@ -209,6 +211,7 @@ export default function AppShell({ username }) {
               onToggleMicro={alternarMicrotarea}
               onOpenTask={setTaskModalData}
               onLogout={cerrarSesion}
+              onAbrirAyuda={(proyecto, micro) => setAyudaData({ proyecto, micro })}
             />
           )}
           {pantalla === "calendario" && <ScreenCalendario proyectos={proyectos} />}
@@ -223,6 +226,14 @@ export default function AppShell({ username }) {
         </div>
 
         <TaskModal data={taskModalData} onClose={() => setTaskModalData(null)} />
+        <ModalAyuda
+          data={ayudaData}
+          onClose={() => setAyudaData(null)}
+          onAplicado={async () => {
+            setAyudaData(null);
+            await cargarDatos();
+          }}
+        />
         <IAModal
           captura={captura}
           onConfirmar={confirmarCaptura}

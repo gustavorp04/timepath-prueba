@@ -12,6 +12,7 @@ import {
   Info,
   LogOut,
   BookOpen,
+  LifeBuoy,
 } from "lucide-react";
 
 export default function ScreenHoy({
@@ -24,6 +25,7 @@ export default function ScreenHoy({
   onToggleMicro,
   onOpenTask,
   onLogout,
+  onAbrirAyuda,
 }) {
   const fecha = new Date().toLocaleDateString("es-ES", {
     weekday: "long",
@@ -209,6 +211,18 @@ export default function ScreenHoy({
                               </span>
                             </div>
                           </div>
+                          {!micro.completada && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onAbrirAyuda(proyecto, micro);
+                              }}
+                              title="¿Atascado? Pide ayuda a la IA"
+                              className="p-2 text-slate-300 hover:text-orange-500 transition-colors bg-slate-50 rounded-xl group-hover:bg-orange-50"
+                            >
+                              <LifeBuoy className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
