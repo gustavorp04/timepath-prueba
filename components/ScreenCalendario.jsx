@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ChevronLeft, ChevronRight, Clock, CalendarCheck } from "lucide-react";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -36,8 +37,58 @@ function etiquetaDia(iso, hoy) {
 export default function ScreenCalendario({ proyectos }) {
   const hoy = hoyISO();
   const entregas = proyectos.filter((p) => p.fecha_entrega);
-  const diasConEntrega = new Set(entregas.map((p) => formatearFecha(p.fecha_entrega).day));
-  const diaHoy = new Date().getDate();
+
+  // Mes visible en el calendario (arranca en el mes actual, flechas para navegar)
+  const [mesVisible, setMesVisible] = useState(() => {
+    const d = new Date();
+    return { anio: d.getFullYear(), mes: d.getMonth() };
+  });
+
+  const tituloMes = (() => {
+    const t = new Date(mesVisible.anio, mesVisible.mes, 1).toLocaleDateString("es-ES", {
+      month: "long",
+      year: "numeric",
+    });
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  })();
+
+  const mesStr = `${mesVisible.anio}-${String(mesVisible.mes + 1).padStart(2, "0")}`;
+  // Entregas (punto rojo) y días con pasos pendientes (punto azul) del mes visible
+  const diasConEntrega = new Set(
+    entregas
+      .filter((p) => p.fecha_entrega.startsWith(mesStr))
+      .map((p) => parseInt(p.fecha_entrega.slice(8), 10))
+  );
+  const diasConPlan = new Set();
+  proyectos.forEach((p) =>
+    p.microtareas.forEach((m) => {
+      if (!m.completada && m.fecha_asignada && m.fecha_asignada.startsWith(mesStr)) {
+        diasConPlan.add(parseInt(m.fecha_asignada.slice(8), 10));
+      }
+    })
+  );
+
+  // Celdas del mes real: relleno del mes anterior + días del mes (semana inicia lunes)
+  const offset = (new Date(mesVisible.anio, mesVisible.mes, 1).getDay() + 6) % 7;
+  const diasDelMes = new Date(mesVisible.anio, mesVisible.mes + 1, 0).getDate();
+  const diasMesAnterior = new Date(mesVisible.anio, mesVisible.mes, 0).getDate();
+  const celdas = [
+    ...Array.from({ length: offset }, (_, i) => ({
+      n: diasMesAnterior - offset + 1 + i,
+      fuera: true,
+    })),
+    ...Array.from({ length: diasDelMes }, (_, i) => ({ n: i + 1, fuera: false })),
+  ];
+
+  const hoyDate = new Date();
+  const esMesActual =
+    hoyDate.getFullYear() === mesVisible.anio && hoyDate.getMonth() === mesVisible.mes;
+
+  const cambiarMes = (delta) =>
+    setMesVisible(({ anio, mes }) => {
+      const d = new Date(anio, mes + delta, 1);
+      return { anio: d.getFullYear(), mes: d.getMonth() };
+    });
 
   // Plan día por día: microtareas pendientes agrupadas por fecha asignada
   // (lo atrasado se muestra como parte de hoy)
@@ -52,12 +103,6 @@ export default function ScreenCalendario({ proyectos }) {
   );
   const diasOrdenados = [...porDia.keys()].sort();
 
-  const dias = [
-    { n: 29, mesAnterior: true },
-    { n: 30, mesAnterior: true },
-    ...Array.from({ length: 31 }, (_, i) => ({ n: i + 1, mesAnterior: false })),
-  ];
-
   return (
     <section className="absolute inset-0 overflow-y-auto no-scrollbar p-6 pb-32 bg-slate-50 screen-enter">
       <header className="mb-6 mt-6">
@@ -69,12 +114,18 @@ export default function ScreenCalendario({ proyectos }) {
 
       <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-extrabold text-slate-700">Mes Actual</h2>
+          <h2 className="text-lg font-extrabold text-slate-700">{tituloMes}</h2>
           <div className="flex gap-2">
-            <button className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <button
+              onClick={() => cambiarMes(-1)}
+              className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors active:scale-95"
+            >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <button className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <button
+              onClick={() => cambiarMes(1)}
+              className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors active:scale-95"
+            >
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
@@ -89,15 +140,15 @@ export default function ScreenCalendario({ proyectos }) {
         </div>
 
         <div className="grid grid-cols-7 gap-y-3 gap-x-1 text-center text-sm font-medium">
-          {dias.map((dia, i) => {
-            if (dia.mesAnterior) {
+          {celdas.map((dia, i) => {
+            if (dia.fuera) {
               return (
                 <div key={i} className="py-1.5 text-slate-300">
                   {dia.n}
                 </div>
               );
             }
-            if (dia.n === diaHoy) {
+            if (esMesActual && dia.n === hoyDate.getDate()) {
               return (
                 <div
                   key={i}
@@ -107,21 +158,34 @@ export default function ScreenCalendario({ proyectos }) {
                 </div>
               );
             }
-            const conPunto = diasConEntrega.has(dia.n);
+            const conEntrega = diasConEntrega.has(dia.n);
+            const conPlan = diasConPlan.has(dia.n);
             return (
               <div
                 key={i}
                 className={`py-1.5 text-slate-700 ${
-                  conPunto ? "relative flex flex-col items-center" : ""
+                  conEntrega || conPlan ? "relative flex flex-col items-center" : ""
                 }`}
               >
                 {dia.n}
-                {conPunto && (
-                  <div className="absolute bottom-0 w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                {(conEntrega || conPlan) && (
+                  <div className="absolute bottom-0 flex gap-0.5">
+                    {conEntrega && <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>}
+                    {conPlan && <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>}
+                  </div>
                 )}
               </div>
             );
           })}
+        </div>
+
+        <div className="flex items-center justify-center gap-4 mt-4 text-[10px] font-semibold text-slate-400">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Entrega
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 bg-blue-400 rounded-full"></span> Día con plan
+          </span>
         </div>
       </div>
 

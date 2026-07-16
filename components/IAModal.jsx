@@ -31,11 +31,15 @@ const CURSOS = [
   "Historia Crítica",
 ];
 
+// Valor especial del select para "escribir el curso a mano"
+const OTRO_CURSO = "__otro__";
+
 export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }) {
   // fases: grabando | loading | question | fraccionando | success | error
   const [fase, setFase] = useState("loading");
   const [paso, setPaso] = useState(0);
   const [curso, setCurso] = useState("");
+  const [cursoLibre, setCursoLibre] = useState(""); // texto cuando elige "Otro curso"
   const [fecha, setFecha] = useState("");
   const [resultado, setResultado] = useState(null);
   const [shake, setShake] = useState(false);
@@ -68,6 +72,7 @@ export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }
   useEffect(() => {
     if (!captura) return;
     setCurso("");
+    setCursoLibre("");
     setFecha("");
     setResultado(null);
     setErrorMsg("");
@@ -152,7 +157,8 @@ export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }
   }
 
   async function validarYFraccionar() {
-    if (!curso || !fecha) {
+    const cursoFinal = curso === OTRO_CURSO ? cursoLibre.trim().slice(0, 40) : curso;
+    if (!cursoFinal || !fecha) {
       setShake(true);
       setTimeout(() => setShake(false), 400);
       return;
@@ -161,7 +167,7 @@ export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }
     const inicio = Date.now();
     try {
       await onConfirmar({
-        curso,
+        curso: cursoFinal,
         fecha,
         descripcion: resultado?.descripcion,
         microtareas: resultado?.microtareas,
@@ -317,7 +323,18 @@ export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }
                     {c}
                   </option>
                 ))}
+                <option value={OTRO_CURSO}>✏️ Otro curso (escribirlo)</option>
               </select>
+              {curso === OTRO_CURSO && (
+                <input
+                  type="text"
+                  value={cursoLibre}
+                  onChange={(e) => setCursoLibre(e.target.value.slice(0, 40))}
+                  placeholder="Escribe el nombre del curso..."
+                  autoFocus
+                  className="w-full mt-2 p-3.5 bg-white border border-blue-300 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-colors fade-in"
+                />
+              )}
             </div>
 
             <div>
@@ -338,6 +355,16 @@ export default function IAModal({ captura, onConfirmar, onTerminar, onCancelar }
             className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 transition-colors active:scale-95 shadow-lg shadow-blue-200"
           >
             Confirmar y Fraccionar
+          </button>
+          
+          <button
+            onClick={() => {
+              limpiar();
+              onCancelar();
+            }}
+            className="mt-4 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            Cancelar
           </button>
         </div>
       )}
